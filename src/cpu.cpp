@@ -100,9 +100,33 @@ void CPU::UpdateCompareFlags16(const uint16_t reg_value, const uint16_t compare_
     }
 }
 
+void CPU::DoBranch(const bool condition) {
+    int8_t displacement = static_cast<int8_t>(ReadByte(PC));
+    PC++;
+
+    if (condition) {
+        // Save the current PC for page boundary check
+        const uint32_t old_pc = PC;
+
+        PC = static_cast<uint32_t>(static_cast<int32_t>(PC) + displacement);
+
+        cycles++;
+
+        if ((old_pc & 0xFF00) != (PC & 0xFF00)) cycles++; // Add one cycle for crossing a page boundary
+    }
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
+        // Branch Instructions
+        case 0xF0: BEQ_Relative(); break;      // BEQ $nn
+        case 0xD0: BNE_Relative(); break;      // BNE $nn
+        case 0x90: BCC_Relative(); break;      // BCC $nn
+        case 0xB0: BCS_Relative(); break;      // BCS $nn
+        case 0x30: BMI_Relative(); break;      // BMI $nn
+        case 0x10: BPL_Relative(); break;      // BPL $nn
+
         // CMP - Compare Accumulator
         case 0xC9: CMP_Immediate(); break;              // CMP #$nn or #$nnnn
         case 0xCD: CMP_Absolute(); break;              // CMP $nnnn
@@ -116,12 +140,12 @@ void CPU::ExecuteInstruction() {
         case 0xCF: CMP_Long(); break;                  // CMP $nnnnnn
         case 0xDF: CMP_LongX(); break;                 // CMP $nnnnnn,X
 
-            // CPX - Compare X Register
+        // CPX - Compare X Register
         case 0xE0: CPX_Immediate(); break;         // CPX #$nn or #$nnnn
         case 0xEC: CPX_Absolute(); break;          // CPX $nnnn
         case 0xE4: CPX_DirectPage(); break;        // CPX $nn
 
-            // CPY - Compare Y Register
+        // CPY - Compare Y Register
         case 0xC0: CPY_Immediate(); break;         // CPY #$nn or #$nnnn
         case 0xCC: CPY_Absolute(); break;          // CPY $nnnn
         case 0xC4: CPY_DirectPage(); break;        // CPY $nn
@@ -1467,4 +1491,28 @@ void CPU::JMP_AbsoluteIndirectX() {
     PC = (static_cast<uint32_t>(PB) << 16) | target_addr;
 
     cycles += 6;
+}
+
+void CPU::BEQ_Relative() {
+    DoBranch(P & FLAG_Z);
+}
+
+void CPU::BNE_Relative() {
+    DoBranch(!(P & FLAG_Z));
+}
+
+void CPU::BCC_Relative() {
+    DoBranch(!(P & FLAG_C));
+}
+
+void CPU::BCS_Relative() {
+    DoBranch(P & FLAG_C);
+}
+
+void CPU::BMI_Relative() {
+    DoBranch(P & FLAG_N);
+}
+
+void CPU::BPL_Relative() {
+    DoBranch(!(P & FLAG_N));
 }

@@ -8,7 +8,6 @@
 
 // 65816 CPU implementation
 class CPU {
-private:
     // Registers
     uint16_t A;     // Accumulator
     uint16_t X, Y;  // Index registers
@@ -37,7 +36,7 @@ private:
     };
 
 public:
-    CPU(Bus* memory_bus) : bus(memory_bus) {
+    explicit CPU(Bus* memory_bus) : bus(memory_bus) {
         Reset();
     }
 
@@ -61,6 +60,9 @@ public:
     void UpdateCompareFlags8(uint8_t reg_value, uint8_t compare_value);
     void UpdateCompareFlags16(uint16_t reg_value, uint16_t compare_value);
 
+    // Branching helper method
+    void DoBranch(bool condition);
+
     // Instruction implementations
     // TODO: Implement remaining instructions
     void CMP_Immediate();
@@ -82,8 +84,6 @@ public:
     void CPY_Immediate();
     void CPY_Absolute();
     void CPY_DirectPage();
-
-    void JMP();
 
     static void NOP();
 
@@ -151,6 +151,13 @@ public:
     void JMP_AbsoluteIndirect();
     void JMP_AbsoluteLong();
     void JMP_AbsoluteIndirectX();
+
+    void BEQ_Relative();
+    void BNE_Relative();
+    void BCC_Relative();
+    void BCS_Relative();
+    void BMI_Relative();
+    void BPL_Relative();
 };
 
 #endif //CPU_H
