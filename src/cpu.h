@@ -53,6 +53,11 @@ public:
     void UpdateNZ8(uint8_t value);
     void UpdateNZ16(uint16_t value);
 
+    // Memory write helpers
+    void WriteByte(uint32_t address, uint8_t value) const;
+    void WriteWord(uint32_t address, uint16_t value) const;
+
+
     // Instruction implementations
     // TODO: Implement remaining instructions
     void JMP();
@@ -82,6 +87,29 @@ public:
     void LDY_AbsoluteX();
     void LDY_DirectPage();
     void LDY_DirectPageX();
+
+    // STA - Store Accumulator operations
+    void STA_Absolute();
+    void STA_AbsoluteX();
+    void STA_AbsoluteY();
+    void STA_DirectPage();
+    void STA_DirectPageX();
+    void STA_IndirectDirectPage();
+    void STA_IndirectDirectPageY();
+    void STA_DirectPageIndirectX();
+    void STA_Long();
+    void STA_LongX();
+
+    // STX - Store X Register operations
+    void STX_Absolute();
+    void STX_DirectPage();
+    void STX_DirectPageY();
+
+    // STY - Store Y Register operations
+    void STY_Absolute();
+    void STY_DirectPage();
+    void STY_DirectPageX();
+
 
     void STA();
 };
