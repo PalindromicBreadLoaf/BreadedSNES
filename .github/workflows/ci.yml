@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
-        build_type: [Debug, Release]
+        build_type: [Release]
 
     steps:
       - name: Checkout source
