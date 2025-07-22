@@ -100,8 +100,9 @@ void CPU::UpdateCompareFlags16(const uint16_t reg_value, const uint16_t compare_
     }
 }
 
+// General Branching Code
 void CPU::DoBranch(const bool condition) {
-    int8_t displacement = static_cast<int8_t>(ReadByte(PC));
+    const int8_t displacement = static_cast<int8_t>(ReadByte(PC));
     PC++;
 
     if (condition) {
@@ -114,6 +115,32 @@ void CPU::DoBranch(const bool condition) {
 
         if ((old_pc & 0xFF00) != (PC & 0xFF00)) cycles++; // Add one cycle for crossing a page boundary
     }
+}
+
+// Stack helper methods:
+void CPU::PushByte(const uint8_t value) {
+    WriteByte(SP, value);
+    SP--;
+    cycles++;
+}
+
+void CPU::PushWord(const uint16_t value) {
+    // Push high then low
+    PushByte(value >> 8);    // High byte
+    PushByte(value & 0xFF);  // Low byte
+}
+
+uint8_t CPU::PopByte() {
+    SP++;
+    cycles++;
+    return ReadByte(SP);
+}
+
+uint16_t CPU::PopWord() {
+    // Pop low then high
+    const uint8_t low = PopByte();
+    const uint8_t high = PopByte();
+    return (high << 8) | low;
 }
 
 void CPU::ExecuteInstruction() {
@@ -163,6 +190,11 @@ void CPU::ExecuteInstruction() {
         case 0x5C: JMP_AbsoluteLong(); break;       // JMP $nnnnnn
         case 0x7C: JMP_AbsoluteIndirectX(); break;  // JMP ($nnnn,X)
 
+        // Subroutine instructions
+        case 0x20: JSR_Absolute(); break;           // JSR $nnnn
+        case 0x22: JSR_AbsoluteLong(); break;       // JSR $nnnnnn
+        case 0xFC: JSR_AbsoluteIndirectX(); break;  // JSR ($nnnn,X)
+
         // Single Register Decrement
         case 0xCA: DEX(); break;                   // DEX - Decrement X Register
         case 0x88: DEY(); break;                   // DEY - Decrement Y Register
@@ -207,6 +239,10 @@ void CPU::ExecuteInstruction() {
         case 0xBC: LDY_AbsoluteX(); break;          // LDY $nnnn,X
         case 0xA4: LDY_DirectPage(); break;         // LDY $nn
         case 0xB4: LDY_DirectPageX(); break;        // LDY $nn,X
+
+        // More Subroutines
+        case 0x60: RTS(); break;                    // RTS
+        case 0x6B: RTL(); break;                    // RTL
 
         //SDA - Store Accumulator
         case 0x8D: STA_Absolute(); break;               // STA $nnnn
@@ -1515,4 +1551,67 @@ void CPU::BMI_Relative() {
 
 void CPU::BPL_Relative() {
     DoBranch(!(P & FLAG_N));
+}
+
+void CPU::JSR_Absolute() {
+    const uint16_t target_addr = ReadWord(PC);
+    PC += 2;
+
+    const uint16_t return_addr = (PC - 1) & 0xFFFF;
+    PushWord(return_addr);
+
+    PC = (static_cast<uint32_t>(PB) << 16) | target_addr;
+
+    cycles += 6;
+}
+
+void CPU::JSR_AbsoluteLong() {
+    const uint16_t addr_low = ReadWord(PC);
+    PC += 2;
+    const uint8_t addr_high = ReadByte(PC);
+    PC++;
+
+    PushByte(PB);
+
+    const uint16_t return_addr = (PC - 1) & 0xFFFF;
+    PushWord(return_addr);
+
+    PB = addr_high;
+    PC = (static_cast<uint32_t>(addr_high) << 16) | addr_low;
+
+    cycles += 8;
+}
+
+void CPU::JSR_AbsoluteIndirectX() {
+    const uint16_t base_addr = ReadWord(PC);
+    PC += 2;
+
+    const uint32_t indirect_addr = (static_cast<uint32_t>(PB) << 16) | ((base_addr + X) & 0xFFFF);
+
+    const uint16_t target_addr = ReadWord(indirect_addr);
+
+    const uint16_t return_addr = (PC - 1) & 0xFFFF;
+    PushWord(return_addr);
+
+    PC = (static_cast<uint32_t>(PB) << 16) | target_addr;
+
+    cycles += 8;
+}
+
+void CPU::RTS() {
+    const uint16_t return_addr = PopWord();
+
+    PC = (static_cast<uint32_t>(PB) << 16) | ((return_addr + 1) & 0xFFFF);
+
+    cycles += 6;
+}
+
+void CPU::RTL() {
+    const uint16_t return_addr = PopWord();
+
+    PB = PopByte();
+
+    PC = (static_cast<uint32_t>(PB) << 16) | ((return_addr + 1) & 0xFFFF);
+
+    cycles += 6;
 }

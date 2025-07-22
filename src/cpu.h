@@ -63,6 +63,12 @@ public:
     // Branching helper method
     void DoBranch(bool condition);
 
+    // Helper methods for stack operations
+    void PushByte(uint8_t value);
+    void PushWord(uint16_t value);
+    uint8_t PopByte();
+    uint16_t PopWord();
+
     // Instruction implementations
     // TODO: Implement remaining instructions
     void CMP_Immediate();
@@ -158,6 +164,12 @@ public:
     void BCS_Relative();
     void BMI_Relative();
     void BPL_Relative();
+
+    void JSR_Absolute();
+    void JSR_AbsoluteLong();
+    void JSR_AbsoluteIndirectX();
+    void RTS();
+    void RTL();
 };
 
 #endif //CPU_H
