@@ -53,9 +53,79 @@ void CPU::WriteWord(const uint32_t address, const uint16_t value) const {
     bus->Write(address + 1, (value >> 8) & 0xFF); // High byte
 }
 
+// Helper function to update flags after compare operation
+void CPU::UpdateCompareFlags8(const uint8_t reg_value, const uint8_t compare_value) {
+    const uint16_t result = reg_value - compare_value;
+
+    // Set/clear flags
+    if (result & 0x100) {
+        P &= ~FLAG_C;
+    } else {
+        P |= FLAG_C;
+    }
+
+    if ((result & 0xFF) == 0) {
+        P |= FLAG_Z;
+    } else {
+        P &= ~FLAG_Z;
+    }
+
+    if (result & 0x80) {
+        P |= FLAG_N;
+    } else {
+        P &= ~FLAG_N;
+    }
+}
+
+void CPU::UpdateCompareFlags16(const uint16_t reg_value, const uint16_t compare_value) {
+    const uint32_t result = reg_value - compare_value;
+
+    // Set/clear flags
+    if (result & 0x10000) {
+        P &= ~FLAG_C;
+    } else {
+        P |= FLAG_C;
+    }
+
+    if ((result & 0xFFFF) == 0) {
+        P |= FLAG_Z;
+    } else {
+        P &= ~FLAG_Z;
+    }
+
+    if (result & 0x8000) {
+        P |= FLAG_N;
+    } else {
+        P &= ~FLAG_N;
+    }
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
+        // CMP - Compare Accumulator
+        case 0xC9: CMP_Immediate(); break;              // CMP #$nn or #$nnnn
+        case 0xCD: CMP_Absolute(); break;              // CMP $nnnn
+        case 0xDD: CMP_AbsoluteX(); break;             // CMP $nnnn,X
+        case 0xD9: CMP_AbsoluteY(); break;             // CMP $nnnn,Y
+        case 0xC5: CMP_DirectPage(); break;            // CMP $nn
+        case 0xD5: CMP_DirectPageX(); break;           // CMP $nn,X
+        case 0xD2: CMP_IndirectDirectPage(); break;    // CMP ($nn)
+        case 0xD1: CMP_IndirectDirectPageY(); break;   // CMP ($nn),Y
+        case 0xC1: CMP_DirectPageIndirectX(); break;   // CMP ($nn,X)
+        case 0xCF: CMP_Long(); break;                  // CMP $nnnnnn
+        case 0xDF: CMP_LongX(); break;                 // CMP $nnnnnn,X
+
+            // CPX - Compare X Register
+        case 0xE0: CPX_Immediate(); break;         // CPX #$nn or #$nnnn
+        case 0xEC: CPX_Absolute(); break;          // CPX $nnnn
+        case 0xE4: CPX_DirectPage(); break;        // CPX $nn
+
+            // CPY - Compare Y Register
+        case 0xC0: CPY_Immediate(); break;         // CPY #$nn or #$nnnn
+        case 0xCC: CPY_Absolute(); break;          // CPY $nnnn
+        case 0xC4: CPY_DirectPage(); break;        // CPY $nn
+
         // DEC - Decrement Memory
         case 0x3A: DEC_Accumulator(); break;       // DEC A
         case 0xCE: DEC_Absolute(); break;          // DEC $nnnn
@@ -1048,4 +1118,299 @@ void CPU::DEY() {
         UpdateNZ16(Y);
     }
     cycles += 2;
+}
+
+// CMP - Compare Accumulator
+void CPU::CMP_Immediate() {
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(PC + 1);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        PC += 2;
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(PC + 1);
+        UpdateCompareFlags16(A, operand);
+        PC += 3;
+        cycles += 3;
+    }
+}
+
+void CPU::CMP_Absolute() {
+    const uint32_t address = ReadWord(PC + 1) | (DB << 16);
+    PC += 3;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 5;
+    }
+}
+
+void CPU::CMP_AbsoluteX() {
+    const uint32_t base = ReadWord(PC + 1) | (DB << 16);
+    const uint32_t address = base + X;
+    PC += 3;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 4;
+        // Add extra cycle if page boundary crossed
+        if ((base & 0xFF00) != (address & 0xFF00)) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 5;
+        // Add extra cycle if page boundary crossed
+        if ((base & 0xFF00) != (address & 0xFF00)) cycles++;
+    }
+}
+
+void CPU::CMP_AbsoluteY() {
+    const uint32_t base = ReadWord(PC + 1) | (DB << 16);
+    const uint32_t address = base + Y;
+    PC += 3;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 4;
+        // Add extra cycle if page boundary crossed
+        if ((base & 0xFF00) != (address & 0xFF00)) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 5;
+        // Add extra cycle if page boundary crossed
+        if ((base & 0xFF00) != (address & 0xFF00)) cycles++;
+    }
+}
+
+void CPU::CMP_DirectPage() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t address = (D + offset) & 0xFFFF;
+    PC += 2;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 3;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 4;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    }
+}
+
+void CPU::CMP_DirectPageX() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t address = (D + offset + X) & 0xFFFF;
+    PC += 2;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 4;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 5;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    }
+}
+
+void CPU::CMP_IndirectDirectPage() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t pointer = (D + offset) & 0xFFFF;
+    const uint32_t address = ReadWord(pointer) | (DB << 16);
+    PC += 2;
+
+    if (P & FLAG_M) { // 8-bit mode
+        uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 5;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 6;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    }
+}
+
+void CPU::CMP_IndirectDirectPageY() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t pointer = (D + offset) & 0xFFFF;
+    const uint32_t base = ReadWord(pointer) | (DB << 16);
+    const uint32_t address = base + Y;
+    PC += 2;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 5;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+        // Add extra cycle if page boundary crossed
+        if ((base & 0xFF00) != (address & 0xFF00)) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 6;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+        // Add extra cycle if page boundary crossed
+        if ((base & 0xFF00) != (address & 0xFF00)) cycles++;
+    }
+}
+
+void CPU::CMP_DirectPageIndirectX() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t pointer = (D + offset + X) & 0xFFFF;
+    const uint32_t address = ReadWord(pointer) | (DB << 16);
+    PC += 2;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 6;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 7;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    }
+}
+
+void CPU::CMP_Long() {
+    const uint32_t address = ReadByte(PC + 1) | (ReadByte(PC + 2) << 8) | (ReadByte(PC + 3) << 16);
+    PC += 4;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 5;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 6;
+    }
+}
+
+void CPU::CMP_LongX() {
+    const uint32_t base = ReadByte(PC + 1) | (ReadByte(PC + 2) << 8) | (ReadByte(PC + 3) << 16);
+    const uint32_t address = base + X;
+    PC += 4;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 6;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 7;
+    }
+}
+
+// CPX - Compare X Register
+void CPU::CPX_Immediate() {
+    if (P & FLAG_X) { // 8-bit mode
+        const uint8_t operand = ReadByte(PC + 1);
+        UpdateCompareFlags8(X & 0xFF, operand);
+        PC += 2;
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(PC + 1);
+        UpdateCompareFlags16(X, operand);
+        PC += 3;
+        cycles += 3;
+    }
+}
+
+void CPU::CPX_Absolute() {
+    const uint32_t address = ReadWord(PC + 1) | (DB << 16);
+    PC += 3;
+
+    if (P & FLAG_X) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(X & 0xFF, operand);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(X, operand);
+        cycles += 5;
+    }
+}
+
+void CPU::CPX_DirectPage() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const int32_t address = (D + offset) & 0xFFFF;
+    PC += 2;
+
+    if (P & FLAG_X) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(X & 0xFF, operand);
+        cycles += 3;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(X, operand);
+        cycles += 4;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    }
+}
+
+// CPY - Compare Y Register
+void CPU::CPY_Immediate() {
+    if (P & FLAG_X) { // 8-bit mode
+        const uint8_t operand = ReadByte(PC + 1);
+        UpdateCompareFlags8(Y & 0xFF, operand);
+        PC += 2;
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(PC + 1);
+        UpdateCompareFlags16(Y, operand);
+        PC += 3;
+        cycles += 3;
+    }
+}
+
+void CPU::CPY_Absolute() {
+    const uint32_t address = ReadWord(PC + 1) | (DB << 16);
+    PC += 3;
+
+    if (P & FLAG_X) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(Y & 0xFF, operand);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(Y, operand);
+        cycles += 5;
+    }
+}
+
+void CPU::CPY_DirectPage() {
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t address = (D + offset) & 0xFFFF;
+    PC += 2;
+
+    if (P & FLAG_X) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(Y & 0xFF, operand);
+        cycles += 3;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(Y, operand);
+        cycles += 4;
+        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
+    }
 }

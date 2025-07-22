@@ -57,9 +57,32 @@ public:
     void WriteByte(uint32_t address, uint8_t value) const;
     void WriteWord(uint32_t address, uint16_t value) const;
 
+    // Helper methods for compare operations
+    void UpdateCompareFlags8(uint8_t reg_value, uint8_t compare_value);
+    void UpdateCompareFlags16(uint16_t reg_value, uint16_t compare_value);
 
     // Instruction implementations
     // TODO: Implement remaining instructions
+    void CMP_Immediate();
+    void CMP_Absolute();
+    void CMP_AbsoluteX();
+    void CMP_AbsoluteY();
+    void CMP_DirectPage();
+    void CMP_DirectPageX();
+    void CMP_IndirectDirectPage();
+    void CMP_IndirectDirectPageY();
+    void CMP_DirectPageIndirectX();
+    void CMP_Long();
+    void CMP_LongX();
+
+    void CPX_Immediate();
+    void CPX_Absolute();
+    void CPX_DirectPage();
+
+    void CPY_Immediate();
+    void CPY_Absolute();
+    void CPY_DirectPage();
+
     void JMP();
 
     static void NOP();
