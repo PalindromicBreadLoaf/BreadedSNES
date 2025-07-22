@@ -152,17 +152,17 @@ void CPU::ExecuteInstruction() {
         case 0xEA: NOP(); break;                    //NOP
 
         // LDA - Load Accumulator
-        case 0xA9: LDA_Immediate(); break;          // LDA #$nn or #$nnnn
-        case 0xAD: LDA_Absolute(); break;           // LDA $nnnn
-        case 0xBD: LDA_AbsoluteX(); break;          // LDA $nnnn,X
-        case 0xB9: LDA_AbsoluteY(); break;          // LDA $nnnn,Y
-        case 0xA5: LDA_DirectPage(); break;         // LDA $nn
-        case 0xB5: LDA_DirectPageX(); break;        // LDA $nn,X
-        case 0xB2: LDA_IndirectDirectPage(); break; // LDA ($nn)
-        case 0xB1: LDA_IndirectDirectPageY(); break;// LDA ($nn),Y
-        case 0xA1: LDA_DirectPageIndirectX(); break;// LDA ($nn,X)
-        case 0xAF: LDA_Long(); break;               // LDA $nnnnnn
-        case 0xBF: LDA_LongX(); break;              // LDA $nnnnnn,X
+        case 0xA9: LDA_Immediate(); break;              // LDA #$nn or #$nnnn
+        case 0xAD: LDA_Absolute(); break;               // LDA $nnnn
+        case 0xBD: LDA_AbsoluteX(); break;              // LDA $nnnn,X
+        case 0xB9: LDA_AbsoluteY(); break;              // LDA $nnnn,Y
+        case 0xA5: LDA_DirectPage(); break;             // LDA $nn
+        case 0xB5: LDA_DirectPageX(); break;            // LDA $nn,X
+        case 0xB2: LDA_IndirectDirectPage(); break;     // LDA ($nn)
+        case 0xB1: LDA_IndirectDirectPageY(); break;    // LDA ($nn),Y
+        case 0xA1: LDA_DirectPageIndirectX(); break;    // LDA ($nn,X)
+        case 0xAF: LDA_Long(); break;                   // LDA $nnnnnn
+        case 0xBF: LDA_LongX(); break;                  // LDA $nnnnnn,X
 
         // LDX - Load X Register
         case 0xA2: LDX_Immediate(); break;          // LDX #$nn or LDX #$nnnn
@@ -179,26 +179,26 @@ void CPU::ExecuteInstruction() {
         case 0xB4: LDY_DirectPageX(); break;        // LDY $nn,X
 
         //SDA - Store Accumulator
-        case 0x8D: STA_Absolute(); break;
-        case 0x9D: STA_AbsoluteX(); break;
-        case 0x99: STA_AbsoluteY(); break;
-        case 0x85: STA_DirectPage(); break;
-        case 0x95: STA_DirectPageX(); break;
-        case 0x92: STA_IndirectDirectPage(); break;
-        case 0x91: STA_IndirectDirectPageY(); break;
-        case 0x81: STA_DirectPageIndirectX(); break;
-        case 0x8F: STA_Long(); break;
-        case 0x9F: STA_LongX(); break;
+        case 0x8D: STA_Absolute(); break;               // STA $nnnn
+        case 0x9D: STA_AbsoluteX(); break;              // STA $nnnn,X
+        case 0x99: STA_AbsoluteY(); break;              // STA $nnnn,Y
+        case 0x85: STA_DirectPage(); break;             // STA $nn
+        case 0x95: STA_DirectPageX(); break;            // STA $nn,X
+        case 0x92: STA_IndirectDirectPage(); break;     // STA ($nn)
+        case 0x91: STA_IndirectDirectPageY(); break;    // STA ($nn),Y
+        case 0x81: STA_DirectPageIndirectX(); break;    // STA ($nn,X)
+        case 0x8F: STA_Long(); break;                   // STA $nnnnnn
+        case 0x9F: STA_LongX(); break;                  // STA $nnnnnn,X
 
         //SDX - Store X Register
-        case 0x8E: STX_Absolute(); break;
-        case 0x86: STX_DirectPage(); break;
-        case 0x96: STX_DirectPageY(); break;
+        case 0x8E: STX_Absolute(); break;           // STX $nnnn
+        case 0x86: STX_DirectPage(); break;         // STX $nn
+        case 0x96: STX_DirectPageY(); break;        // STX $nn,Y
 
         // SDY - Store Y Register
-        case 0x8C: STY_Absolute();  break;
-        case 0x84: STY_DirectPage();  break;
-        case 0x94: STY_DirectPageX(); break;
+        case 0x8C: STY_Absolute();  break;          // STY $nnnn
+        case 0x84: STY_DirectPage();  break;        // STY $nn
+        case 0x94: STY_DirectPageX(); break;        // STY $nn,X
 
         default:
             std::cout << "Unknown opcode: 0x" << std::hex << static_cast<int>(opcode) << std::endl;
