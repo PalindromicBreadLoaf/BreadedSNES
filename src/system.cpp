@@ -2,12 +2,11 @@
 // Created by Palindromic Bread Loaf on 7/21/25.
 //
 
-#include "system.h"
-
 #include <fstream>
 #include <iostream>
 
 #include "bus.h"
+#include "system.h"
 
 // SNES System Implementation
 System::System() : running(false) {

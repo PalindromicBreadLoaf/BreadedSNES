@@ -6,6 +6,7 @@
 #define SYSTEM_H
 
 #include <memory>
+#include <string>
 #include "cpu.h"
 #include "ppu.h"
 #include "apu.h"
@@ -14,7 +15,6 @@
 
 // Main SNES System class
 class System {
-private:
     std::unique_ptr<CPU> cpu;
     std::unique_ptr<PPU> ppu;
     std::unique_ptr<APU> apu;
