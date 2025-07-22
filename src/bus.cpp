@@ -13,8 +13,7 @@ uint8_t Bus::Read(uint32_t address) {
         return wram[address - 0x7E0000];
     } else if (address >= 0x800000 && cartridge) {
         // ROM access
-        uint32_t rom_addr = address & 0x7FFFFF;
-        if (rom_addr < cartridge->size()) {
+        if (const uint32_t rom_addr = address & 0x7FFFFF; rom_addr < cartridge->size()) {
             return (*cartridge)[rom_addr];
         }
     }

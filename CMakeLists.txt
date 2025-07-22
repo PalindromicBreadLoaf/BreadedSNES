@@ -115,7 +115,7 @@ if(WIN32)
 endif()
 
 # Package Config
-set(CPACK_PACKAGE_NAME "SNES Emulator")
+set(CPACK_PACKAGE_NAME "BreadedSNES")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 set(CPACK_PACKAGE_DESCRIPTION "Cross-platform SNES Emulator")
 

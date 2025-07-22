@@ -29,7 +29,7 @@ bool System::LoadROM(const std::string& filename) {
     }
 
     file.seekg(0, std::ios::end);
-    size_t size = file.tellg();
+    const size_t size = file.tellg();
     file.seekg(0, std::ios::beg);
 
     cartridge_data.resize(size);

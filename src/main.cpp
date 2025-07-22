@@ -12,7 +12,7 @@ class PPU;
 class APU;
 class Bus;
 
-int main(int argc, char* argv[]) {
+int main(const int argc, char* argv[]) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         std::cout << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
         return -1;
@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         "BreadedSNES",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        256, 224,  // SNES output resolution
+        256, 224,  // SNES output res
         SDL_WINDOW_SHOWN
     );
 
