@@ -53,6 +53,11 @@ add_executable(breadedSNES
         src/apu.cpp
         src/bus.cpp
         src/system.cpp
+        src/system.h
+        src/apu.h
+        src/bus.h
+        src/cpu.h
+        src/ppu.h
 )
 
 target_include_directories(breadedSNES PRIVATE
