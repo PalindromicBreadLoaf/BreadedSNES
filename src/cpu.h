@@ -47,7 +47,7 @@ public:
     [[nodiscard]] uint64_t GetCycles() const { return cycles; }
 
     // Addressing mode helpers
-    uint32_t GetEffectiveAddress(uint8_t mode);
+    //uint32_t GetEffectiveAddress(uint8_t mode);
     uint8_t ReadByte(uint32_t address);
     uint16_t ReadWord(uint32_t address);
     void UpdateNZ8(uint8_t value);
@@ -88,7 +88,6 @@ public:
     void LDY_DirectPage();
     void LDY_DirectPageX();
 
-    // STA - Store Accumulator operations
     void STA_Absolute();
     void STA_AbsoluteX();
     void STA_AbsoluteY();
@@ -100,18 +99,30 @@ public:
     void STA_Long();
     void STA_LongX();
 
-    // STX - Store X Register operations
     void STX_Absolute();
     void STX_DirectPage();
     void STX_DirectPageY();
 
-    // STY - Store Y Register operations
     void STY_Absolute();
     void STY_DirectPage();
     void STY_DirectPageX();
 
+    void INC_Accumulator();
+    void INC_Absolute();
+    void INC_AbsoluteX();
+    void INC_DirectPage();
+    void INC_DirectPageX();
 
-    void STA();
+    void DEC_Accumulator();
+    void DEC_Absolute();
+    void DEC_AbsoluteX();
+    void DEC_DirectPage();
+    void DEC_DirectPageX();
+
+    void INX();
+    void INY();
+    void DEX();
+    void DEY();
 };
 
 #endif //CPU_H
