@@ -7,6 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
+if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+            CACHE STRING "")
+endif()
+
 # Platform-specific settings
 if(WIN32)
     add_definitions(-DWIN32_LEAN_AND_MEAN)
@@ -19,7 +24,7 @@ elseif(UNIX)
 endif()
 
 # Find SDL2
-if(WIN32)
+if(WIN32 AND NOT DEFINED ENV{VCPKG_ROOT})
     # Windows things
     set(SDL2_DIR "C:/SDL2" CACHE PATH "/path/to/sdl2") # Do this later when I have access to a Windows machine
     find_package(SDL2 REQUIRED CONFIG)
@@ -41,10 +46,13 @@ elseif(APPLE)
     find_package(SDL2 REQUIRED CONFIG)
 
     message(STATUS "Found SDL2 at: ${SDL2_DIR}")
-else()
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(SDL2 REQUIRED sdl2)
+elseif(UNIX)
+    if(NOT SDL2_FOUND)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(SDL2 REQUIRED sdl2)
+    endif()
 endif()
+
 
 add_executable(breadedSNES
         src/main.cpp
@@ -59,6 +67,10 @@ add_executable(breadedSNES
         src/cpu.h
         src/ppu.h
 )
+
+if(SDL2_FOUND)
+    include_directories(${SDL2_INCLUDE_DIRS})
+endif()
 
 target_include_directories(breadedSNES PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
