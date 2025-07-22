@@ -28,8 +28,8 @@ uint8_t CPU::ReadByte(const uint32_t address) {
 }
 
 uint16_t CPU::ReadWord(const uint32_t address) {
-    uint8_t low = ReadByte(address);
-    uint8_t high = ReadByte(address + 1);
+    const uint8_t low = ReadByte(address);
+    const uint8_t high = ReadByte(address + 1);
     return (high << 8) | low;
 }
 
@@ -132,6 +132,12 @@ void CPU::ExecuteInstruction() {
         case 0xDE: DEC_AbsoluteX(); break;         // DEC $nnnn,X
         case 0xC6: DEC_DirectPage(); break;        // DEC $nn
         case 0xD6: DEC_DirectPageX(); break;       // DEC $nn,X
+
+        // JMP - Jump to an Address
+        case 0x4C: JMP_Absolute(); break;           // JMP $nnnn
+        case 0x6C: JMP_AbsoluteIndirect(); break;   // JMP ($nnnn)
+        case 0x5C: JMP_AbsoluteLong(); break;       // JMP $nnnnnn
+        case 0x7C: JMP_AbsoluteIndirectX(); break;  // JMP ($nnnn,X)
 
         // Single Register Decrement
         case 0xCA: DEX(); break;                   // DEX - Decrement X Register
@@ -1413,4 +1419,52 @@ void CPU::CPY_DirectPage() {
         cycles += 4;
         if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
     }
+}
+
+void CPU::JMP_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+
+    PC = (static_cast<uint32_t>(PB) << 16) | address;
+
+    cycles += 3;
+}
+
+void CPU::JMP_AbsoluteIndirect() {
+    const uint16_t indirect_addr = ReadWord(PC);
+    PC += 2;
+
+    const uint32_t full_indirect_addr = (static_cast<uint32_t>(DB) << 16) | indirect_addr;
+    const uint16_t target_addr = ReadWord(full_indirect_addr);
+
+    PC = (static_cast<uint32_t>(PB) << 16) | target_addr;
+
+    cycles += 5;
+}
+
+void CPU::JMP_AbsoluteLong() {
+    const uint16_t addr_low = ReadWord(PC);
+    PC += 2;
+    const uint8_t addr_high = ReadByte(PC);
+    PC++;
+
+    const uint32_t target_addr = (static_cast<uint32_t>(addr_high) << 16) | addr_low;
+
+    PB = addr_high;
+    PC = target_addr;
+
+    cycles += 4;
+}
+
+void CPU::JMP_AbsoluteIndirectX() {
+    const uint16_t base_addr = ReadWord(PC);
+    PC += 2;
+
+    const uint32_t indirect_addr = (static_cast<uint32_t>(PB) << 16) | (base_addr + X);
+
+    const uint16_t target_addr = ReadWord(indirect_addr);
+
+    PC = (static_cast<uint32_t>(PB) << 16) | target_addr;
+
+    cycles += 6;
 }

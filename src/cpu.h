@@ -146,6 +146,11 @@ public:
     void INY();
     void DEX();
     void DEY();
+
+    void JMP_Absolute();
+    void JMP_AbsoluteIndirect();
+    void JMP_AbsoluteLong();
+    void JMP_AbsoluteIndirectX();
 };
 
 #endif //CPU_H
