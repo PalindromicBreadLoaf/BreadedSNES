@@ -125,8 +125,8 @@ void CPU::PushByte(const uint8_t value) {
 
 void CPU::PushWord(const uint16_t value) {
     // Push high then low
-    PushByte(value >> 8);    // High byte
-    PushByte(value & 0xFF);  // Low byte
+    PushByte(value >> 8);
+    PushByte(value & 0xFF);
 }
 
 uint8_t CPU::PopByte() {
@@ -334,6 +334,13 @@ void CPU::ExecuteInstruction() {
         case 0xB0: BCS_Relative(); break;      // BCS $nn
         case 0x30: BMI_Relative(); break;      // BMI $nn
         case 0x10: BPL_Relative(); break;      // BPL $nn
+        case 0x80: BRA_Relative(); break;       // BRA $nnnn
+        case 0x82: BRL_RelativeLong(); break;   // BRL $nnnnnn
+        case 0x50: BVC_Relative(); break;       // BVC $nnnn
+        case 0x70: BVS_Relative(); break;       // BVS $nnnn
+
+        // Break Instruction
+        case 0x00: BRK(); break;                // BRK
 
         //  BIT - Test Bits Instructions
         case 0x89: BIT_Immediate(); break;      // BIT #$nn or #$nnnn
@@ -2724,5 +2731,67 @@ void CPU::BIT_DirectPageX() {
         UpdateBITFlags16(operand, A);
         cycles += 5;
         if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::BRA_Relative() {
+    DoBranch(true);
+    cycles += 2;
+}
+
+void CPU::BRL_RelativeLong() {
+    const int16_t offset = ReadWord(PC);
+    PC += 2;
+
+    const uint16_t current_pc = PC & 0xFFFF;
+    const uint16_t new_pc = current_pc + offset;
+    PC = (PC & 0xFF0000) | new_pc;
+
+    cycles += 4;
+}
+
+void CPU::BVC_Relative() {
+    DoBranch(!(P & FLAG_V));
+    cycles += 2;
+}
+
+void CPU::BVS_Relative() {
+    DoBranch(P & FLAG_V);
+    cycles += 2;
+}
+
+void CPU::BRK() {
+    PC++;
+
+    if (!emulation_mode) {
+        PushByte(PB);
+
+        PushWord(PC);
+
+        PushByte(P | 0x10);
+
+        P |= FLAG_I;
+
+        P &= ~FLAG_D;
+
+        PB = 0;
+
+        // Load interrupt vector from $00FFE6-$00FFE7
+        PC = ReadWord(0x00FFE6);
+
+        cycles += 5;
+    } else {    //Emulation mode
+        PushWord(PC);
+
+        PushByte(P | 0x30);
+
+        P |= FLAG_I;
+
+        P &= ~FLAG_D;
+
+        // Load interrupt vector from $FFFE-$FFFF
+        PC = ReadWord(0xFFFE);
+
+        cycles += 4;
     }
 }

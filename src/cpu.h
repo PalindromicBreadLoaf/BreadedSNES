@@ -20,6 +20,7 @@ class CPU {
 
     Bus* bus;
     uint64_t cycles;
+    bool emulation_mode = false;
 
     // Status flags
     enum Flags {
@@ -244,6 +245,12 @@ public:
     void BIT_AbsoluteX();
     void BIT_DirectPage();
     void BIT_DirectPageX();
+
+    void BRA_Relative();
+    void BRL_RelativeLong();
+    void BVC_Relative();
+    void BVS_Relative();
+    void BRK();
 };
 
 #endif //CPU_H
