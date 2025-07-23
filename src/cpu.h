@@ -75,6 +75,10 @@ public:
     // Helper method to check for decimal mode adjustment
     static uint16_t AdjustDecimal(uint16_t binary_result, bool is_16bit);
 
+    // Helper methods for ASL stuff
+    void UpdateASLFlags8(uint8_t original_value, uint8_t result);
+    void UpdateASLFlags16(uint16_t original_value, uint16_t result);
+
     // Instruction implementations
     // TODO: Implement remaining instructions
     void CMP_Immediate();
@@ -222,6 +226,12 @@ public:
     void AND_AbsoluteLongX();
     void AND_StackRelative();
     void AND_StackRelativeIndirectY();
+
+    void ASL_Accumulator();
+    void ASL_Absolute();
+    void ASL_AbsoluteX();
+    void ASL_DirectPage();
+    void ASL_DirectPageX();
 };
 
 #endif //CPU_H

@@ -202,6 +202,24 @@ uint16_t CPU::AdjustDecimal(const uint16_t binary_result, const bool is_16bit) {
     return result;
 }
 
+void CPU::UpdateASLFlags8(const uint8_t original_value, const uint8_t result) {
+    if (original_value & 0x80) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+    UpdateNZ8(result);
+}
+
+void CPU::UpdateASLFlags16(const uint16_t original_value, const uint16_t result) {
+    if (original_value & 0x8000) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+    UpdateNZ16(result);
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
@@ -238,6 +256,13 @@ void CPU::ExecuteInstruction() {
         case 0x3F: AND_AbsoluteLongX(); break;                // AND $nnnnnn,X
         case 0x23: AND_StackRelative(); break;                // AND $nn,S
         case 0x33: AND_StackRelativeIndirectY(); break;       // AND ($nn,S),Y
+
+        // ASL - Accumulator Shift Left
+        case 0x0A: ASL_Accumulator(); break;    // ASL A
+        case 0x0E: ASL_Absolute(); break;       // ASL $nnnn
+        case 0x1E: ASL_AbsoluteX(); break;      // ASL $nnnn,X
+        case 0x06: ASL_DirectPage(); break;     // ASL $nn
+        case 0x16: ASL_DirectPageX(); break;    // ASL $nn,X
 
         // Branch Instructions
         case 0xF0: BEQ_Relative(); break;      // BEQ $nn
@@ -2364,13 +2389,13 @@ void CPU::AND_IndirectDirectPageLongY() {
     const uint32_t full_address = base_address + Y;
 
     if (P & FLAG_M) { // 8-bit mode
-        uint8_t operand = ReadByte(full_address);
+        const uint8_t operand = ReadByte(full_address);
         A = (A & 0xFF00) | ((A & 0xFF) & operand);
         UpdateNZ8(A & 0xFF);
         cycles += 6;
         if (D & 0xFF) cycles++;
     } else { // 16-bit mode
-        uint16_t operand = ReadWord(full_address);
+        const uint16_t operand = ReadWord(full_address);
         A &= operand;
         UpdateNZ16(A);
         cycles += 7;
@@ -2446,5 +2471,103 @@ void CPU::AND_StackRelativeIndirectY() {
         A &= operand;
         UpdateNZ16(A);
         cycles += 8;
+    }
+}
+
+void CPU::ASL_Accumulator() {
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = A & 0xFF;
+        const uint8_t result = original << 1;
+        A = (A & 0xFF00) | result;
+        UpdateASLFlags8(original, result);
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t original = A;
+        const uint16_t result = original << 1;
+        A = result;
+        UpdateASLFlags16(original, result);
+        cycles += 2;
+    }
+}
+
+void CPU::ASL_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(full_address);
+        const uint8_t result = original << 1;
+        WriteByte(full_address, result);
+        UpdateASLFlags8(original, result);
+        cycles += 6;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(full_address);
+        const uint16_t result = original << 1;
+        WriteWord(full_address, result);
+        UpdateASLFlags16(original, result);
+        cycles += 8;
+    }
+}
+
+void CPU::ASL_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | (base_address + X);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(full_address);
+        const uint8_t result = original << 1;
+        WriteByte(full_address, result);
+        UpdateASLFlags8(original, result);
+        cycles += 7;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(full_address);
+        const uint16_t result = original << 1;
+        WriteWord(full_address, result);
+        UpdateASLFlags16(original, result);
+        cycles += 9;
+    }
+}
+
+void CPU::ASL_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(address);
+        const uint8_t result = original << 1;
+        WriteByte(address, result);
+        UpdateASLFlags8(original, result);
+        cycles += 5;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(address);
+        const uint16_t result = original << 1;
+        WriteWord(address, result);
+        UpdateASLFlags16(original, result);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::ASL_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset + X;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(address);
+        const uint8_t result = original << 1;
+        WriteByte(address, result);
+        UpdateASLFlags8(original, result);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(address);
+        const uint16_t result = original << 1;
+        WriteWord(address, result);
+        UpdateASLFlags16(original, result);
+        cycles += 8;
+        if (D & 0xFF) cycles++;
     }
 }
