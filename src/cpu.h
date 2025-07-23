@@ -79,6 +79,12 @@ public:
     void UpdateASLFlags8(uint8_t original_value, uint8_t result);
     void UpdateASLFlags16(uint16_t original_value, uint16_t result);
 
+    // Helper methods for BIT
+    void UpdateBITFlags8(uint8_t memory_value, uint8_t acc_value);
+    void UpdateBITFlags16(uint16_t memory_value, uint16_t acc_value);
+    void UpdateBITImmediateFlags8(uint8_t memory_value, uint8_t acc_value);
+    void UpdateBITImmediateFlags16(uint16_t memory_value, uint16_t acc_value);
+
     // Instruction implementations
     // TODO: Implement remaining instructions
     void CMP_Immediate();
@@ -232,6 +238,12 @@ public:
     void ASL_AbsoluteX();
     void ASL_DirectPage();
     void ASL_DirectPageX();
+
+    void BIT_Immediate();
+    void BIT_Absolute();
+    void BIT_AbsoluteX();
+    void BIT_DirectPage();
+    void BIT_DirectPageX();
 };
 
 #endif //CPU_H

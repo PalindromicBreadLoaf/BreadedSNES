@@ -220,6 +220,69 @@ void CPU::UpdateASLFlags16(const uint16_t original_value, const uint16_t result)
     UpdateNZ16(result);
 }
 
+// Helper function to update flags after BIT operation (non-immediate modes)
+void CPU::UpdateBITFlags8(uint8_t memory_value, uint8_t acc_value) {
+    // Z flag: set if (A & memory) == 0
+    if (const uint8_t result = acc_value & memory_value; result == 0) {
+        P |= FLAG_Z;
+    } else {
+        P &= ~FLAG_Z;
+    }
+
+    // N flag: copy bit 7 of memory
+    if (memory_value & 0x80) {
+        P |= FLAG_N;
+    } else {
+        P &= ~FLAG_N;
+    }
+
+    // V flag: copy bit 6 of memory
+    if (memory_value & 0x40) {
+        P |= FLAG_V;
+    } else {
+        P &= ~FLAG_V;
+    }
+}
+
+void CPU::UpdateBITFlags16(const uint16_t memory_value, const uint16_t acc_value) {
+    if (const uint16_t result = acc_value & memory_value; result == 0) {
+        P |= FLAG_Z;
+    } else {
+        P &= ~FLAG_Z;
+    }
+
+    // N flag: copy bit 15 of memory
+    if (memory_value & 0x8000) {
+        P |= FLAG_N;
+    } else {
+        P &= ~FLAG_N;
+    }
+
+    // V flag: copy bit 14 of memory
+    if (memory_value & 0x4000) {
+        P |= FLAG_V;
+    } else {
+        P &= ~FLAG_V;
+    }
+}
+
+// Helper function for immediate mode BIT
+void CPU::UpdateBITImmediateFlags8(const uint8_t memory_value, const uint8_t acc_value) {
+    if (const uint8_t result = acc_value & memory_value; result == 0) {
+        P |= FLAG_Z;
+    } else {
+        P &= ~FLAG_Z;
+    }
+}
+
+void CPU::UpdateBITImmediateFlags16(const uint16_t memory_value, const uint16_t acc_value) {
+    if (const uint16_t result = acc_value & memory_value; result == 0) {
+        P |= FLAG_Z;
+    } else {
+        P &= ~FLAG_Z;
+    }
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
@@ -271,6 +334,13 @@ void CPU::ExecuteInstruction() {
         case 0xB0: BCS_Relative(); break;      // BCS $nn
         case 0x30: BMI_Relative(); break;      // BMI $nn
         case 0x10: BPL_Relative(); break;      // BPL $nn
+
+        //  BIT - Test Bits Instructions
+        case 0x89: BIT_Immediate(); break;      // BIT #$nn or #$nnnn
+        case 0x2C: BIT_Absolute(); break;       // BIT $nnnn
+        case 0x3C: BIT_AbsoluteX(); break;      // BIT $nnnn,X
+        case 0x24: BIT_DirectPage(); break;     // BIT $nn
+        case 0x34: BIT_DirectPageX(); break;    // BIT $nn,X
 
         // CMP - Compare Accumulator
         case 0xC9: CMP_Immediate(); break;             // CMP #$nn or #$nnnn
@@ -2568,6 +2638,91 @@ void CPU::ASL_DirectPageX() {
         WriteWord(address, result);
         UpdateASLFlags16(original, result);
         cycles += 8;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::BIT_Immediate() {
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(PC++);
+        UpdateBITImmediateFlags8(operand, A & 0xFF);
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(PC);
+        PC += 2;
+        UpdateBITImmediateFlags16(operand, A);
+        cycles += 3;
+    }
+}
+
+void CPU::BIT_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        UpdateBITFlags8(operand, A & 0xFF);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        UpdateBITFlags16(operand, A);
+        cycles += 5;
+    }
+}
+
+void CPU::BIT_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | (base_address + X);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        UpdateBITFlags8(operand, A & 0xFF);
+        cycles += 4;
+        if ((base_address & 0xFF00) != ((base_address + X) & 0xFF00)) {
+            cycles++;
+        }
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        UpdateBITFlags16(operand, A);
+        cycles += 5;
+        if ((base_address & 0xFF00) != ((base_address + X) & 0xFF00)) {
+            cycles++;
+        }
+    }
+}
+
+void CPU::BIT_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateBITFlags8(operand, A & 0xFF);
+        cycles += 3;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateBITFlags16(operand, A);
+        cycles += 4;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::BIT_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset + X;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateBITFlags8(operand, A & 0xFF);
+        cycles += 4;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateBITFlags16(operand, A);
+        cycles += 5;
         if (D & 0xFF) cycles++;
     }
 }
