@@ -69,6 +69,12 @@ public:
     uint8_t PopByte();
     uint16_t PopWord();
 
+    // Helper method for ADC instructions
+    void DoADC(uint16_t value);
+
+    // Helper method to check for decimal mode adjustment
+    static uint16_t AdjustDecimal(uint16_t binary_result, bool is_16bit);
+
     // Instruction implementations
     // TODO: Implement remaining instructions
     void CMP_Immediate();
@@ -184,6 +190,22 @@ public:
     void PHD();
     void PLD();
     void PHK();
+
+    void ADC_Immediate();
+    void ADC_Absolute();
+    void ADC_AbsoluteX();
+    void ADC_AbsoluteY();
+    void ADC_DirectPage();
+    void ADC_DirectPageX();
+    void ADC_IndirectDirectPage();
+    void ADC_IndirectDirectPageY();
+    void ADC_DirectPageIndirectX();
+    void ADC_AbsoluteLong();
+    void ADC_AbsoluteLongX();
+    void ADC_DirectPageIndirectLong();
+    void ADC_DirectPageIndirectLongY();
+    void ADC_StackRelative();
+    void ADC_StackRelativeIndirectY();
 };
 
 #endif //CPU_H
