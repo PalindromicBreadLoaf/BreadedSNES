@@ -205,6 +205,23 @@ uint16_t CPU::AdjustDecimal(const uint16_t binary_result, const bool is_16bit) {
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
+        // Bitwise AND Instructions
+        case 0x29: AND_Immediate(); break;                    // AND #$nn or #$nnnn
+        case 0x2D: AND_Absolute(); break;                     // AND $nnnn
+        case 0x3D: AND_AbsoluteX(); break;                    // AND $nnnn,X
+        case 0x39: AND_AbsoluteY(); break;                    // AND $nnnn,Y
+        case 0x25: AND_DirectPage(); break;                   // AND $nn
+        case 0x35: AND_DirectPageX(); break;                  // AND $nn,X
+        case 0x32: AND_IndirectDirectPage(); break;           // AND ($nn)
+        case 0x27: AND_IndirectDirectPageLong(); break;       // AND [$nn]
+        case 0x21: AND_IndexedIndirectDirectPageX(); break;   // AND ($nn,X)
+        case 0x31: AND_IndirectDirectPageY(); break;          // AND ($nn),Y
+        case 0x37: AND_IndirectDirectPageLongY(); break;      // AND [$nn],Y
+        case 0x2F: AND_AbsoluteLong(); break;                 // AND $nnnnnn
+        case 0x3F: AND_AbsoluteLongX(); break;                // AND $nnnnnn,X
+        case 0x23: AND_StackRelative(); break;                // AND $nn,S
+        case 0x33: AND_StackRelativeIndirectY(); break;       // AND ($nn,S),Y
+
         // ADC - Add with Carry
         case 0x69: ADC_Immediate(); break;              // ADC #$nn/#$nnnn
         case 0x6D: ADC_Absolute(); break;               // ADC $nnnn
@@ -2124,6 +2141,310 @@ void CPU::ADC_StackRelativeIndirectY() {
     } else {
         const uint16_t value = ReadWord(target_address);
         DoADC(value);
+        cycles += 8;
+    }
+}
+
+void CPU::AND_Immediate() {
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(PC++);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(PC);
+        PC += 2;
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 3;
+    }
+}
+
+void CPU::AND_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 5;
+    }
+}
+
+void CPU::AND_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | (base_address + X);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 4;
+        if ((base_address & 0xFF00) != ((base_address + X) & 0xFF00)) {
+            cycles++;
+        }
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 5;
+        if ((base_address & 0xFF00) != ((base_address + X) & 0xFF00)) {
+            cycles++;
+        }
+    }
+}
+
+void CPU::AND_AbsoluteY() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | (base_address + Y);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 4;
+        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
+            cycles++;
+        }
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 5;
+        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
+            cycles++;
+        }
+    }
+}
+
+void CPU::AND_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 3;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 4;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::AND_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset + X;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 4;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 5;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::AND_IndirectDirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+    const uint16_t indirect_address = ReadWord(pointer_address);
+    const uint32_t full_address = (DB << 16) | indirect_address;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 5;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::AND_IndirectDirectPageLong() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+    const uint32_t full_address = ReadByte(pointer_address) |
+                           (ReadByte(pointer_address + 1) << 8) |
+                           (ReadByte(pointer_address + 2) << 16);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::AND_IndexedIndirectDirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset + X;
+    const uint16_t indirect_address = ReadWord(pointer_address);
+    const uint32_t full_address = (DB << 16) | indirect_address;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::AND_IndirectDirectPageY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+    const uint16_t base_address = ReadWord(pointer_address);
+    const uint32_t full_address = (DB << 16) | (base_address + Y);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 5;
+        if (D & 0xFF) cycles++;
+        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
+            cycles++;
+        }
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
+            cycles++;
+        }
+    }
+}
+
+void CPU::AND_IndirectDirectPageLongY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+    const uint32_t base_address = ReadByte(pointer_address) |
+                           (ReadByte(pointer_address + 1) << 8) |
+                           (ReadByte(pointer_address + 2) << 16);
+    const uint32_t full_address = base_address + Y;
+
+    if (P & FLAG_M) { // 8-bit mode
+        uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::AND_AbsoluteLong() {
+    const uint32_t address = ReadByte(PC) | (ReadByte(PC + 1) << 8) | (ReadByte(PC + 2) << 16);
+    PC += 3;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 5;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 6;
+    }
+}
+
+void CPU::AND_AbsoluteLongX() {
+    const uint32_t base_address = ReadByte(PC) | (ReadByte(PC + 1) << 8) | (ReadByte(PC + 2) << 16);
+    PC += 3;
+    const uint32_t full_address = base_address + X;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 5;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 6;
+    }
+}
+
+void CPU::AND_StackRelative() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = SP + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        A &= operand;
+        UpdateNZ16(A);
+        cycles += 5;
+    }
+}
+
+void CPU::AND_StackRelativeIndirectY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = SP + offset;
+    const uint16_t base_address = ReadWord(pointer_address);
+    const uint32_t full_address = (DB << 16) | (base_address + Y);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        A = (A & 0xFF00) | ((A & 0xFF) & operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += 7;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        A &= operand;
+        UpdateNZ16(A);
         cycles += 8;
     }
 }

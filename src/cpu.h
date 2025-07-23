@@ -206,6 +206,22 @@ public:
     void ADC_DirectPageIndirectLongY();
     void ADC_StackRelative();
     void ADC_StackRelativeIndirectY();
+
+    void AND_Immediate();
+    void AND_Absolute();
+    void AND_AbsoluteX();
+    void AND_AbsoluteY();
+    void AND_DirectPage();
+    void AND_DirectPageX();
+    void AND_IndirectDirectPage();
+    void AND_IndirectDirectPageLong();
+    void AND_IndexedIndirectDirectPageX();
+    void AND_IndirectDirectPageY();
+    void AND_IndirectDirectPageLongY();
+    void AND_AbsoluteLong();
+    void AND_AbsoluteLongX();
+    void AND_StackRelative();
+    void AND_StackRelativeIndirectY();
 };
 
 #endif //CPU_H
