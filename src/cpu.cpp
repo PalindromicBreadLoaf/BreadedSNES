@@ -205,23 +205,6 @@ uint16_t CPU::AdjustDecimal(const uint16_t binary_result, const bool is_16bit) {
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
-        // Bitwise AND Instructions
-        case 0x29: AND_Immediate(); break;                    // AND #$nn or #$nnnn
-        case 0x2D: AND_Absolute(); break;                     // AND $nnnn
-        case 0x3D: AND_AbsoluteX(); break;                    // AND $nnnn,X
-        case 0x39: AND_AbsoluteY(); break;                    // AND $nnnn,Y
-        case 0x25: AND_DirectPage(); break;                   // AND $nn
-        case 0x35: AND_DirectPageX(); break;                  // AND $nn,X
-        case 0x32: AND_IndirectDirectPage(); break;           // AND ($nn)
-        case 0x27: AND_IndirectDirectPageLong(); break;       // AND [$nn]
-        case 0x21: AND_IndexedIndirectDirectPageX(); break;   // AND ($nn,X)
-        case 0x31: AND_IndirectDirectPageY(); break;          // AND ($nn),Y
-        case 0x37: AND_IndirectDirectPageLongY(); break;      // AND [$nn],Y
-        case 0x2F: AND_AbsoluteLong(); break;                 // AND $nnnnnn
-        case 0x3F: AND_AbsoluteLongX(); break;                // AND $nnnnnn,X
-        case 0x23: AND_StackRelative(); break;                // AND $nn,S
-        case 0x33: AND_StackRelativeIndirectY(); break;       // AND ($nn,S),Y
-
         // ADC - Add with Carry
         case 0x69: ADC_Immediate(); break;              // ADC #$nn/#$nnnn
         case 0x6D: ADC_Absolute(); break;               // ADC $nnnn
@@ -238,6 +221,23 @@ void CPU::ExecuteInstruction() {
         case 0x77: ADC_DirectPageIndirectLongY(); break;// ADC [$nn],Y
         case 0x63: ADC_StackRelative(); break;          // ADC $nn,S
         case 0x73: ADC_StackRelativeIndirectY(); break; // ADC ($nn,S),Y
+
+        // Bitwise AND Instructions
+        case 0x29: AND_Immediate(); break;                    // AND #$nn or #$nnnn
+        case 0x2D: AND_Absolute(); break;                     // AND $nnnn
+        case 0x3D: AND_AbsoluteX(); break;                    // AND $nnnn,X
+        case 0x39: AND_AbsoluteY(); break;                    // AND $nnnn,Y
+        case 0x25: AND_DirectPage(); break;                   // AND $nn
+        case 0x35: AND_DirectPageX(); break;                  // AND $nn,X
+        case 0x32: AND_IndirectDirectPage(); break;           // AND ($nn)
+        case 0x27: AND_IndirectDirectPageLong(); break;       // AND [$nn]
+        case 0x21: AND_IndexedIndirectDirectPageX(); break;   // AND ($nn,X)
+        case 0x31: AND_IndirectDirectPageY(); break;          // AND ($nn),Y
+        case 0x37: AND_IndirectDirectPageLongY(); break;      // AND [$nn],Y
+        case 0x2F: AND_AbsoluteLong(); break;                 // AND $nnnnnn
+        case 0x3F: AND_AbsoluteLongX(); break;                // AND $nnnnnn,X
+        case 0x23: AND_StackRelative(); break;                // AND $nn,S
+        case 0x33: AND_StackRelativeIndirectY(); break;       // AND ($nn,S),Y
 
         // Branch Instructions
         case 0xF0: BEQ_Relative(); break;      // BEQ $nn
