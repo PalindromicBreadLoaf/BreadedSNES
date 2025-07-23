@@ -356,17 +356,21 @@ void CPU::ExecuteInstruction() {
         case 0xB8: CLV(); break;    // CLV
 
         // CMP - Compare Accumulator
-        case 0xC9: CMP_Immediate(); break;             // CMP #$nn or #$nnnn
-        case 0xCD: CMP_Absolute(); break;              // CMP $nnnn
-        case 0xDD: CMP_AbsoluteX(); break;             // CMP $nnnn,X
-        case 0xD9: CMP_AbsoluteY(); break;             // CMP $nnnn,Y
-        case 0xC5: CMP_DirectPage(); break;            // CMP $nn
-        case 0xD5: CMP_DirectPageX(); break;           // CMP $nn,X
-        case 0xD2: CMP_IndirectDirectPage(); break;    // CMP ($nn)
-        case 0xD1: CMP_IndirectDirectPageY(); break;   // CMP ($nn),Y
-        case 0xC1: CMP_DirectPageIndirectX(); break;   // CMP ($nn,X)
-        case 0xCF: CMP_Long(); break;                  // CMP $nnnnnn
-        case 0xDF: CMP_LongX(); break;                 // CMP $nnnnnn,X
+        case 0xC9: CMP_Immediate(); break;                  // CMP #$nn or #$nnnn
+        case 0xCD: CMP_Absolute(); break;                   // CMP $nnnn
+        case 0xDD: CMP_AbsoluteX(); break;                  // CMP $nnnn,X
+        case 0xD9: CMP_AbsoluteY(); break;                  // CMP $nnnn,Y
+        case 0xC5: CMP_DirectPage(); break;                 // CMP $nn
+        case 0xD5: CMP_DirectPageX(); break;                // CMP $nn,X
+        case 0xD2: CMP_IndirectDirectPage(); break;         // CMP ($nn)
+        case 0xD1: CMP_IndirectDirectPageY(); break;        // CMP ($nn),Y
+        case 0xC1: CMP_DirectPageIndirectX(); break;        // CMP ($nn,X)
+        case 0xCF: CMP_Long(); break;                       // CMP $nnnnnn
+        case 0xDF: CMP_LongX(); break;                      // CMP $nnnnnn,X
+        case 0xC3: CMP_StackRelative(); break;              // CMP sr,S
+        case 0xC7: CMP_IndirectDirectPageLong(); break;     // CMP [dp]
+        case 0xD3: CMP_StackRelativeIndirectY(); break;     // CMP (sr,S),Y
+        case 0xD7: CMP_IndirectDirectPageLongY(); break;    // CMP [dp],Y
 
         // CPX - Compare X Register
         case 0xE0: CPX_Immediate(); break;         // CPX #$nn or #$nnnn
@@ -2820,4 +2824,82 @@ void CPU::CLI() {
 void CPU::CLV() {
     P &= ~FLAG_V;
     cycles += 2;
+}
+
+void CPU::CMP_StackRelative() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = SP + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 5;
+    }
+}
+
+void CPU::CMP_IndirectDirectPageLong() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+
+    const uint32_t full_address = ReadByte(pointer_address) |
+                           (ReadByte(pointer_address + 1) << 8) |
+                           (ReadByte(pointer_address + 2) << 16);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::CMP_StackRelativeIndirectY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = SP + offset;
+
+    const uint16_t base_address = ReadWord(pointer_address);
+
+    const uint32_t full_address = (DB << 16) | (base_address + Y);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 7;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 8;
+    }
+}
+
+void CPU::CMP_IndirectDirectPageLongY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+
+    const uint32_t base_address = ReadByte(pointer_address) |
+                           (ReadByte(pointer_address + 1) << 8) |
+                           (ReadByte(pointer_address + 2) << 16);
+
+    const uint32_t full_address = base_address + Y;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        UpdateCompareFlags8(A & 0xFF, operand);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        UpdateCompareFlags16(A, operand);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
 }

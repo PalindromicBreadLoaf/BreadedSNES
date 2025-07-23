@@ -256,6 +256,11 @@ public:
     void CLD();
     void CLI();
     void CLV();
+
+    void CMP_StackRelative();
+    void CMP_IndirectDirectPageLong();
+    void CMP_StackRelativeIndirectY();
+    void CMP_IndirectDirectPageLongY();
 };
 
 #endif //CPU_H
