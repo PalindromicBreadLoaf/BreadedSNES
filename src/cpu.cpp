@@ -102,12 +102,11 @@ void CPU::UpdateCompareFlags16(const uint16_t reg_value, const uint16_t compare_
 
 // General Branching Code
 void CPU::DoBranch(const bool condition) {
-    const int8_t displacement = static_cast<int8_t>(ReadByte(PC));
+    const auto displacement = static_cast<int8_t>(ReadByte(PC));
     PC++;
 
     if (condition) {
-        // Save the current PC for page boundary check
-        const uint32_t old_pc = PC;
+        const uint32_t old_pc = PC; // Save the current PC for page boundary check
 
         PC = static_cast<uint32_t>(static_cast<int32_t>(PC) + displacement);
 
@@ -155,7 +154,7 @@ void CPU::ExecuteInstruction() {
         case 0x10: BPL_Relative(); break;      // BPL $nn
 
         // CMP - Compare Accumulator
-        case 0xC9: CMP_Immediate(); break;              // CMP #$nn or #$nnnn
+        case 0xC9: CMP_Immediate(); break;             // CMP #$nn or #$nnnn
         case 0xCD: CMP_Absolute(); break;              // CMP $nnnn
         case 0xDD: CMP_AbsoluteX(); break;             // CMP $nnnn,X
         case 0xD9: CMP_AbsoluteY(); break;             // CMP $nnnn,Y
@@ -239,6 +238,21 @@ void CPU::ExecuteInstruction() {
         case 0xBC: LDY_AbsoluteX(); break;          // LDY $nnnn,X
         case 0xA4: LDY_DirectPage(); break;         // LDY $nn
         case 0xB4: LDY_DirectPageX(); break;        // LDY $nn,X
+
+        // Stack operations
+        case 0x48: PHA(); break;  // PHA
+        case 0x68: PLA(); break;  // PLA
+        case 0xDA: PHX(); break;  // PHX
+        case 0xFA: PLX(); break;  // PLX
+        case 0x5A: PHY(); break;  // PHY
+        case 0x7A: PLY(); break;  // PLY
+        case 0x08: PHP(); break;  // PHP
+        case 0x28: PLP(); break;  // PLP
+        case 0x8B: PHB(); break;  // PHB
+        case 0xAB: PLB(); break;  // PLB
+        case 0x0B: PHD(); break;  // PHD
+        case 0x2B: PLD(); break;  // PLD
+        case 0x4B: PHK(); break;  // PHK
 
         // More Subroutines
         case 0x60: RTS(); break;                    // RTS
@@ -1614,4 +1628,119 @@ void CPU::RTL() {
     PC = (static_cast<uint32_t>(PB) << 16) | ((return_addr + 1) & 0xFFFF);
 
     cycles += 6;
+}
+
+void CPU::PHA() {
+    if (P & FLAG_M) {
+        // 8-bit mode: push low byte of accumulator
+        PushByte(A & 0xFF);
+        cycles += 3;
+    } else {
+        // 16-bit mode
+        PushWord(A);
+        cycles += 4;
+    }
+}
+
+void CPU::PLA() {
+    if (P & FLAG_M) {
+        // 8-bit mode: pull into low byte, clear high byte
+        A = PopByte();
+        UpdateNZ8(A & 0xFF);
+        cycles += 4;
+    } else {
+        // 16-bit mode
+        A = PopWord();
+        UpdateNZ16(A);
+        cycles += 5;
+    }
+}
+
+void CPU::PHX() {
+    if (P & FLAG_X) {
+        // 8-bit mode: push low byte of X
+        PushByte(X & 0xFF);
+        cycles += 3;
+    } else {
+        // 16-bit mode
+        PushWord(X);
+        cycles += 4;
+    }
+}
+
+void CPU::PLX() {
+    if (P & FLAG_X) {
+        // 8-bit mode: pull into low byte, clear high byte
+        X = PopByte();
+        UpdateNZ8(X & 0xFF);
+        cycles += 4;
+    } else {
+        // 16-bit mode
+        X = PopWord();
+        UpdateNZ16(X);
+        cycles += 5;
+    }
+}
+
+void CPU::PHY() {
+    if (P & FLAG_X) {
+        // 8-bit mode: push low byte of Y
+        PushByte(Y & 0xFF);
+        cycles += 3;
+    } else {
+        // 16-bit mode
+        PushWord(Y);
+        cycles += 4;
+    }
+}
+
+void CPU::PLY() {
+    if (P & FLAG_X) {
+        // 8-bit mode: pull into low byte, clear high byte
+        Y = PopByte();
+        UpdateNZ8(Y & 0xFF);
+        cycles += 4;
+    } else {
+        // 16-bit mode: pull full 16-bit value
+        Y = PopWord();
+        UpdateNZ16(Y);
+        cycles += 5;
+    }
+}
+
+void CPU::PHP() {
+    PushByte(P);
+    cycles += 3;
+}
+
+void CPU::PLP() {
+    P = PopByte();
+    cycles += 4;
+}
+
+void CPU::PHB() {
+    PushByte(DB);
+    cycles += 3;
+}
+
+void CPU::PLB() {
+    DB = PopByte();
+    UpdateNZ8(DB);
+    cycles += 4;
+}
+
+void CPU::PHD() {
+    PushWord(D);
+    cycles += 4;
+}
+
+void CPU::PLD() {
+    D = PopWord();
+    UpdateNZ16(D);
+    cycles += 5;
+}
+
+void CPU::PHK() {
+    PushByte(PB);
+    cycles += 3;
 }

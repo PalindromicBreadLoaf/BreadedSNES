@@ -170,6 +170,20 @@ public:
     void JSR_AbsoluteIndirectX();
     void RTS();
     void RTL();
+
+    void PHA();
+    void PLA();
+    void PHX();
+    void PLX();
+    void PHY();
+    void PLY();
+    void PHP();
+    void PLP();
+    void PHB();
+    void PLB();
+    void PHD();
+    void PLD();
+    void PHK();
 };
 
 #endif //CPU_H
