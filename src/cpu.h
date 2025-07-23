@@ -36,18 +36,7 @@ class CPU {
         // FLAG_B = 0x10 //Break
     };
 
-public:
-    explicit CPU(Bus* memory_bus) : bus(memory_bus) {
-        Reset();
-    }
-
-    void Reset();
-    void Step();
-    void ExecuteInstruction();
-    [[nodiscard]] uint64_t GetCycles() const { return cycles; }
-
     // Addressing mode helpers
-    //uint32_t GetEffectiveAddress(uint8_t mode);
     uint8_t ReadByte(uint32_t address);
     uint16_t ReadWord(uint32_t address);
     void UpdateNZ8(uint8_t value);
@@ -85,6 +74,16 @@ public:
     void UpdateBITFlags16(uint16_t memory_value, uint16_t acc_value);
     void UpdateBITImmediateFlags8(uint8_t memory_value, uint8_t acc_value);
     void UpdateBITImmediateFlags16(uint16_t memory_value, uint16_t acc_value);
+
+public:
+    explicit CPU(Bus* memory_bus) : bus(memory_bus) {
+        Reset();
+    }
+
+    void Reset();
+    void Step();
+    void ExecuteInstruction();
+    [[nodiscard]] uint64_t GetCycles() const { return cycles; }
 
     // Instruction implementations
     // TODO: Implement remaining instructions
