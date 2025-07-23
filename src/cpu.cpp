@@ -349,6 +349,12 @@ void CPU::ExecuteInstruction() {
         case 0x24: BIT_DirectPage(); break;     // BIT $nn
         case 0x34: BIT_DirectPageX(); break;    // BIT $nn,X
 
+        // Clear State Flags Instructions
+        case 0x18: CLC(); break;    // CLC
+        case 0xD8: CLD(); break;    // CLD
+        case 0x58: CLI(); break;    // CLI
+        case 0xB8: CLV(); break;    // CLV
+
         // CMP - Compare Accumulator
         case 0xC9: CMP_Immediate(); break;             // CMP #$nn or #$nnnn
         case 0xCD: CMP_Absolute(); break;              // CMP $nnnn
@@ -2794,4 +2800,24 @@ void CPU::BRK() {
 
         cycles += 4;
     }
+}
+
+void CPU::CLC() {
+    P &= ~FLAG_C;
+    cycles += 2;
+}
+
+void CPU::CLD() {
+    P &= ~FLAG_D;
+    cycles += 2;
+}
+
+void CPU::CLI() {
+    P &= ~FLAG_I;
+    cycles += 2;
+}
+
+void CPU::CLV() {
+    P &= ~FLAG_V;
+    cycles += 2;
 }

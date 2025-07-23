@@ -251,6 +251,11 @@ public:
     void BVC_Relative();
     void BVS_Relative();
     void BRK();
+
+    void CLC();
+    void CLD();
+    void CLI();
+    void CLV();
 };
 
 #endif //CPU_H
