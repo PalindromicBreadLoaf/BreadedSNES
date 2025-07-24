@@ -120,6 +120,10 @@ public:
     void LDA_DirectPageIndirectX();
     void LDA_Long();
     void LDA_LongX();
+    void LDA_StackRelative();
+    void LDA_IndirectDirectPageLong();
+    void LDA_StackRelativeIndirectY();
+    void LDA_IndirectDirectPageLongY();
 
     void LDX_Immediate();
     void LDX_Absolute();
@@ -173,6 +177,7 @@ public:
     void JMP_AbsoluteIndirect();
     void JMP_AbsoluteLong();
     void JMP_AbsoluteIndirectX();
+    void JMP_AbsoluteIndirectLong();
 
     void BEQ_Relative();
     void BNE_Relative();

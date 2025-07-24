@@ -407,10 +407,11 @@ void CPU::ExecuteInstruction() {
         case 0x53: EOR_StackRelativeIndirectY(); break;       // EOR ($nn,S),Y
 
         // JMP - Jump to an Address
-        case 0x4C: JMP_Absolute(); break;           // JMP $nnnn
-        case 0x6C: JMP_AbsoluteIndirect(); break;   // JMP ($nnnn)
-        case 0x5C: JMP_AbsoluteLong(); break;       // JMP $nnnnnn
-        case 0x7C: JMP_AbsoluteIndirectX(); break;  // JMP ($nnnn,X)
+        case 0x4C: JMP_Absolute(); break;                    // JMP $nnnn
+        case 0x6C: JMP_AbsoluteIndirect(); break;            // JMP ($nnnn)
+        case 0x5C: JMP_AbsoluteLong(); break;                // JMP $nnnnnn
+        case 0x7C: JMP_AbsoluteIndirectX(); break;           // JMP ($nnnn,X)
+        case 0xDC: JMP_AbsoluteIndirectLong(); break;        // JMP [addr]
 
         // Subroutine instructions
         case 0x20: JSR_Absolute(); break;           // JSR $nnnn
@@ -436,17 +437,21 @@ void CPU::ExecuteInstruction() {
         case 0xEA: NOP(); break;                    //NOP
 
         // LDA - Load Accumulator
-        case 0xA9: LDA_Immediate(); break;              // LDA #$nn or #$nnnn
-        case 0xAD: LDA_Absolute(); break;               // LDA $nnnn
-        case 0xBD: LDA_AbsoluteX(); break;              // LDA $nnnn,X
-        case 0xB9: LDA_AbsoluteY(); break;              // LDA $nnnn,Y
-        case 0xA5: LDA_DirectPage(); break;             // LDA $nn
-        case 0xB5: LDA_DirectPageX(); break;            // LDA $nn,X
-        case 0xB2: LDA_IndirectDirectPage(); break;     // LDA ($nn)
-        case 0xB1: LDA_IndirectDirectPageY(); break;    // LDA ($nn),Y
-        case 0xA1: LDA_DirectPageIndirectX(); break;    // LDA ($nn,X)
-        case 0xAF: LDA_Long(); break;                   // LDA $nnnnnn
-        case 0xBF: LDA_LongX(); break;                  // LDA $nnnnnn,X
+        case 0xA9: LDA_Immediate(); break;                   // LDA #$nn or #$nnnn
+        case 0xAD: LDA_Absolute(); break;                    // LDA $nnnn
+        case 0xBD: LDA_AbsoluteX(); break;                   // LDA $nnnn,X
+        case 0xB9: LDA_AbsoluteY(); break;                   // LDA $nnnn,Y
+        case 0xA5: LDA_DirectPage(); break;                  // LDA $nn
+        case 0xB5: LDA_DirectPageX(); break;                 // LDA $nn,X
+        case 0xB2: LDA_IndirectDirectPage(); break;          // LDA ($nn)
+        case 0xB1: LDA_IndirectDirectPageY(); break;         // LDA ($nn),Y
+        case 0xA1: LDA_DirectPageIndirectX(); break;         // LDA ($nn,X)
+        case 0xAF: LDA_Long(); break;                        // LDA $nnnnnn
+        case 0xBF: LDA_LongX(); break;                       // LDA $nnnnnn,X
+        case 0xA3: LDA_StackRelative(); break;               // LDA sr,S
+        case 0xA7: LDA_IndirectDirectPageLong(); break;      // LDA [dp]
+        case 0xB3: LDA_StackRelativeIndirectY(); break;      // LDA (sr,S),Y
+        case 0xB7: LDA_IndirectDirectPageLongY(); break;     // LDA [dp],Y
 
         // LDX - Load X Register
         case 0xA2: LDX_Immediate(); break;          // LDX #$nn or LDX #$nnnn
@@ -3222,5 +3227,105 @@ void CPU::EOR_StackRelativeIndirectY() {
         A ^= operand;
         UpdateNZ16(A);
         cycles += 8;
+    }
+}
+
+void CPU::JMP_AbsoluteIndirectLong() {
+    const uint16_t pointer_address = ReadWord(PC);
+    PC += 2;
+
+    const uint32_t target_address = ReadByte(pointer_address) |
+                             (ReadByte(pointer_address + 1) << 8) |
+                             (ReadByte(pointer_address + 2) << 16);
+
+    PC = target_address & 0xFFFF;
+    PB = (target_address >> 16) & 0xFF;
+
+    cycles += 6;
+}
+
+void CPU::LDA_StackRelative() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = SP + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t value = ReadByte(address);
+        A = (A & 0xFF00) | value;
+        UpdateNZ8(value);
+        cycles += 4;
+    } else { // 16-bit mode
+        const uint16_t value = ReadWord(address);
+        A = value;
+        UpdateNZ16(value);
+        cycles += 5;
+    }
+}
+
+void CPU::LDA_IndirectDirectPageLong() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+
+    const uint32_t full_address = ReadByte(pointer_address) |
+                           (ReadByte(pointer_address + 1) << 8) |
+                           (ReadByte(pointer_address + 2) << 16);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t value = ReadByte(full_address);
+        A = (A & 0xFF00) | value;
+        UpdateNZ8(value);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t value = ReadWord(full_address);
+        A = value;
+        UpdateNZ16(value);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::LDA_StackRelativeIndirectY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = SP + offset;
+
+    const uint16_t base_address = ReadWord(pointer_address);
+
+    const uint32_t full_address = (DB << 16) | (base_address + Y);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t value = ReadByte(full_address);
+        A = (A & 0xFF00) | value;
+        UpdateNZ8(value);
+        cycles += 7;
+    } else { // 16-bit mode
+        const uint16_t value = ReadWord(full_address);
+        A = value;
+        UpdateNZ16(value);
+        cycles += 8;
+    }
+}
+
+void CPU::LDA_IndirectDirectPageLongY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t pointer_address = D + offset;
+
+    const uint32_t base_address = ReadByte(pointer_address) |
+                           (ReadByte(pointer_address + 1) << 8) |
+                           (ReadByte(pointer_address + 2) << 16);
+
+    const uint32_t full_address = base_address + Y;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t value = ReadByte(full_address);
+        A = (A & 0xFF00) | value;
+        UpdateNZ8(value);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t value = ReadWord(full_address);
+        A = value;
+        UpdateNZ16(value);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
     }
 }
