@@ -303,6 +303,71 @@ void CPU::UpdateLSRFlags16(const uint16_t original_value, const uint16_t result)
     UpdateNZ16(result);
 }
 
+// ROL/ROR helper methods
+uint8_t CPU::ROL8(uint8_t value) {
+    const bool old_carry = (P & FLAG_C) != 0;
+    const bool new_carry = (value & 0x80) != 0;
+
+    value = (value << 1) | (old_carry ? 1 : 0);
+
+    if (new_carry) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+
+    UpdateNZ8(value);
+    return value;
+}
+
+uint16_t CPU::ROL16(uint16_t value) {
+    const bool old_carry = (P & FLAG_C) != 0;
+    const bool new_carry = (value & 0x8000) != 0;
+
+    value = (value << 1) | (old_carry ? 1 : 0);
+
+    if (new_carry) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+
+    UpdateNZ16(value);
+    return value;
+}
+
+uint8_t CPU::ROR8(uint8_t value) {
+    const bool old_carry = (P & FLAG_C) != 0;
+    const bool new_carry = (value & 0x01) != 0;
+
+    value = (value >> 1) | (old_carry ? 0x80 : 0);
+
+    if (new_carry) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+
+    UpdateNZ8(value);
+    return value;
+}
+
+uint16_t CPU::ROR16(uint16_t value) {
+    const bool old_carry = (P & FLAG_C) != 0;
+    const bool new_carry = (value & 0x0001) != 0;
+
+    value = (value >> 1) | (old_carry ? 0x8000 : 0);
+
+    if (new_carry) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+
+    UpdateNZ16(value);
+    return value;
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
@@ -534,6 +599,20 @@ void CPU::ExecuteInstruction() {
         // More Subroutines
         case 0x60: RTS(); break;                    // RTS
         case 0x6B: RTL(); break;                    // RTL
+
+        // ROL - Rotate Left
+        case 0x2A: ROL_Accumulator(); break;    // ROL A
+        case 0x2E: ROL_Absolute(); break;       // ROL $nnnn
+        case 0x3E: ROL_AbsoluteX(); break;      // ROL $nnnn,X
+        case 0x26: ROL_DirectPage(); break;     // ROL $nn
+        case 0x36: ROL_DirectPageX(); break;    // ROL $nn,X
+
+        // ROR - Rotate Right
+        case 0x6A: ROR_Accumulator(); break;    // ROR A
+        case 0x6E: ROR_Absolute(); break;       // ROR $nnnn
+        case 0x7E: ROR_AbsoluteX(); break;      // ROR $nnnn,X
+        case 0x66: ROR_DirectPage(); break;     // ROR $nn
+        case 0x76: ROR_DirectPageX(); break;    // ROR $nn,X
 
         //SDA - Store Accumulator
         case 0x8D: STA_Absolute(); break;               // STA $nnnn
@@ -3831,4 +3910,193 @@ void CPU::MVP() {
     DB = dest_bank;
 
     cycles += 7;
+}
+
+void CPU::ROL_Accumulator() {
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t low_byte = A & 0xFF;
+        low_byte = ROL8(low_byte);
+        A = (A & 0xFF00) | low_byte;
+    } else {
+        // 16-bit mode
+        A = ROL16(A);
+    }
+    cycles += 2;
+}
+
+void CPU::ROL_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte((DB << 16) | address);
+        value = ROL8(value);
+        WriteByte((DB << 16) | address, value);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord((DB << 16) | address);
+        value = ROL16(value);
+        WriteWord((DB << 16) | address, value);
+        cycles += 7;
+    }
+}
+
+void CPU::ROL_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t address = (DB << 16) | (base_address + X);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte(address);
+        value = ROL8(value);
+        WriteByte(address, value);
+        cycles += 7;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord(address);
+        value = ROL16(value);
+        WriteWord(address, value);
+        cycles += 8;
+    }
+}
+
+void CPU::ROL_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte(address);
+        value = ROL8(value);
+        WriteByte(address, value);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord(address);
+        value = ROL16(value);
+        WriteWord(address, value);
+        cycles += 6;
+    }
+
+    // Add extra cycle if D register low byte is non-zero
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::ROL_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset + (P & FLAG_X ? (X & 0xFF) : X);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte(address);
+        value = ROL8(value);
+        WriteByte(address, value);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord(address);
+        value = ROL16(value);
+        WriteWord(address, value);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::ROR_Accumulator() {
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t low_byte = A & 0xFF;
+        low_byte = ROR8(low_byte);
+        A = (A & 0xFF00) | low_byte;
+    } else {
+        // 16-bit mode
+        A = ROR16(A);
+    }
+    cycles += 2;
+}
+
+void CPU::ROR_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte((DB << 16) | address);
+        value = ROR8(value);
+        WriteByte((DB << 16) | address, value);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord((DB << 16) | address);
+        value = ROR16(value);
+        WriteWord((DB << 16) | address, value);
+        cycles += 7;
+    }
+}
+
+void CPU::ROR_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t address = (DB << 16) | (base_address + X);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte(address);
+        value = ROR8(value);
+        WriteByte(address, value);
+        cycles += 7;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord(address);
+        value = ROR16(value);
+        WriteWord(address, value);
+        cycles += 8;
+    }
+}
+
+void CPU::ROR_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte(address);
+        value = ROR8(value);
+        WriteByte(address, value);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord(address);
+        value = ROR16(value);
+        WriteWord(address, value);
+        cycles += 6;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::ROR_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset + (P & FLAG_X ? (X & 0xFF) : X);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t value = ReadByte(address);
+        value = ROR8(value);
+        WriteByte(address, value);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        uint16_t value = ReadWord(address);
+        value = ROR16(value);
+        WriteWord(address, value);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
 }

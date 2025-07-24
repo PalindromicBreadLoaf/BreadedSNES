@@ -78,6 +78,12 @@ class CPU {
     void UpdateLSRFlags8(uint8_t original_value, uint8_t result);
     void UpdateLSRFlags16(uint16_t original_value, uint16_t result);
 
+    //Helper Methods for Rotate Right/Left
+    uint8_t ROL8(uint8_t value);
+    uint16_t ROL16(uint16_t value);
+    uint8_t ROR8(uint8_t value);
+    uint16_t ROR16(uint16_t value);
+
 public:
     explicit CPU(Bus* memory_bus) : bus(memory_bus) {
         Reset();
@@ -309,6 +315,18 @@ public:
 
     void MVN();
     void MVP();
+
+    void ROL_Accumulator();
+    void ROL_Absolute();
+    void ROL_AbsoluteX();
+    void ROL_DirectPage();
+    void ROL_DirectPageX();
+
+    void ROR_Accumulator();
+    void ROR_Absolute();
+    void ROR_AbsoluteX();
+    void ROR_DirectPage();
+    void ROR_DirectPageX();
 };
 
 #endif //CPU_H
