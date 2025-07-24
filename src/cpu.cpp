@@ -453,6 +453,11 @@ void CPU::ExecuteInstruction() {
         case 0xE8: INX(); break;                   // INX - Increment X Register
         case 0xC8: INY(); break;                   // INY - Increment Y Register
 
+        // Move Block Instructions
+        // There is zero way this is done right. I don't understand at all.
+        case 0x54: MVN(); break;    // MVN srcbank,destbank
+        case 0x44: MVP(); break;    // MVP srcbank,destbank
+
         // No Operation
         case 0xEA: NOP(); break;                    //NOP
 
@@ -3774,4 +3779,56 @@ void CPU::ORA_StackRelativeIndirectY() {
         UpdateNZ16(A);
         cycles += 8;
     }
+}
+
+void CPU::MVN() {
+    const uint8_t dest_bank = ReadByte(PC++);
+    const uint8_t src_bank = ReadByte(PC++);
+
+    const uint32_t src_address = (src_bank << 16) | X;
+    const uint32_t dest_address = (dest_bank << 16) | Y;
+
+    const uint8_t data = ReadByte(src_address);
+    WriteByte(dest_address, data);
+
+    X++;
+    Y++;
+
+    A--;
+
+    if (A != 0xFFFF) {
+        // Make sure that operation has successfully completed
+        // If not, stay on this instruction
+        PC -= 3;
+    }
+
+    DB = dest_bank;
+
+    cycles += 7;
+}
+
+void CPU::MVP() {
+    uint8_t dest_bank = ReadByte(PC++);
+    uint8_t src_bank = ReadByte(PC++);
+
+    const uint32_t src_address = (src_bank << 16) | X;
+    const uint32_t dest_address = (dest_bank << 16) | Y;
+
+    const uint8_t data = ReadByte(src_address);
+    WriteByte(dest_address, data);
+
+    X--;
+    Y--;
+
+    A--;
+
+    if (A != 0xFFFF) {
+        // Make sure that operation has successfully completed
+        // If not, stay on this instruction
+        PC -= 3;
+    }
+
+    DB = dest_bank;
+
+    cycles += 7;
 }

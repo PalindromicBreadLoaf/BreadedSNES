@@ -306,6 +306,9 @@ public:
     void ORA_AbsoluteLongX();
     void ORA_StackRelative();
     void ORA_StackRelativeIndirectY();
+
+    void MVN();
+    void MVP();
 };
 
 #endif //CPU_H
