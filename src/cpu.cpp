@@ -596,9 +596,18 @@ void CPU::ExecuteInstruction() {
         case 0x2B: PLD(); break;  // PLD
         case 0x4B: PHK(); break;  // PHK
 
+        // Push Effective Instructions
+        case 0xF4: PEA(); break;    //PEA
+        case 0xD4: PEI(); break;    //PEI
+        case 0x62: PER(); break;    //PER
+
+        // REP - Reset Status Bits
+        case 0xC2: REP(); break;
+
         // More Subroutines
         case 0x60: RTS(); break;                    // RTS
         case 0x6B: RTL(); break;                    // RTL
+        case 0x40: RTI(); break;                    // RTI
 
         // ROL - Rotate Left
         case 0x2A: ROL_Accumulator(); break;    // ROL A
@@ -4099,4 +4108,57 @@ void CPU::ROR_DirectPageX() {
     }
 
     if (D & 0xFF) cycles++;
+}
+
+void CPU::PEA() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+
+    PushWord(address);
+    cycles += 5;
+}
+
+void CPU::PEI() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+
+    const uint16_t effective_addr = ReadWord(indirect_addr);
+
+    PushWord(effective_addr);
+    cycles += 6;
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::PER() {
+    const auto displacement = static_cast<int16_t>(ReadWord(PC));
+    PC += 2;
+
+    const auto effective_addr = static_cast<uint16_t>(PC + displacement);
+
+    PushWord(effective_addr);
+    cycles += 6;
+}
+
+void CPU::REP() {
+    const uint8_t mask = ReadByte(PC++);
+
+    P &= ~mask;
+
+    cycles += 3;
+}
+
+void CPU::RTI() {
+    if (emulation_mode) {
+        P = PopByte();
+        PC = PopWord();
+        cycles += 7;
+    } else {
+        // Native mode
+        P = PopByte();
+        const uint16_t pc_addr = PopWord();
+        PB = PopByte();
+        PC = (static_cast<uint32_t>(PB) << 16) | pc_addr;
+        cycles += 6;
+    }
 }

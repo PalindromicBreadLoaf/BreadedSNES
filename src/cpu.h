@@ -327,6 +327,12 @@ public:
     void ROR_AbsoluteX();
     void ROR_DirectPage();
     void ROR_DirectPageX();
+
+    void PEA();
+    void PEI();
+    void PER();
+    void REP();
+    void RTI();
 };
 
 #endif //CPU_H
