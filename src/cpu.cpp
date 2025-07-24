@@ -18,7 +18,7 @@ void CPU::Reset() {
 }
 
 void CPU::Step() {
-    ExecuteInstruction();
+    if (!stopped) ExecuteInstruction();
 }
 
 // CPU Helper Methods
@@ -751,17 +751,30 @@ void CPU::ExecuteInstruction() {
         case 0xE3: SBC_StackRelative(); break;          // SBC $nn,S
         case 0xF3: SBC_StackRelativeIndirectY(); break; // SBC ($nn,S),Y
 
-        //SDA - Store Accumulator
-        case 0x8D: STA_Absolute(); break;               // STA $nnnn
-        case 0x9D: STA_AbsoluteX(); break;              // STA $nnnn,X
-        case 0x99: STA_AbsoluteY(); break;              // STA $nnnn,Y
-        case 0x85: STA_DirectPage(); break;             // STA $nn
-        case 0x95: STA_DirectPageX(); break;            // STA $nn,X
-        case 0x92: STA_IndirectDirectPage(); break;     // STA ($nn)
-        case 0x91: STA_IndirectDirectPageY(); break;    // STA ($nn),Y
-        case 0x81: STA_DirectPageIndirectX(); break;    // STA ($nn,X)
-        case 0x8F: STA_Long(); break;                   // STA $nnnnnn
-        case 0x9F: STA_LongX(); break;                  // STA $nnnnnn,X
+        // SE* - Set Certain Flags
+        case 0x38: SEC(); break;
+        case 0xF8: SED(); break;
+        case 0x78: SEI(); break;
+        case 0xE2: SEP(); break;
+
+        //STA - Store Accumulator
+        case 0x8D: STA_Absolute(); break;                   // STA $nnnn
+        case 0x9D: STA_AbsoluteX(); break;                  // STA $nnnn,X
+        case 0x99: STA_AbsoluteY(); break;                  // STA $nnnn,Y
+        case 0x85: STA_DirectPage(); break;                 // STA $nn
+        case 0x95: STA_DirectPageX(); break;                // STA $nn,X
+        case 0x92: STA_IndirectDirectPage(); break;         // STA ($nn)
+        case 0x91: STA_IndirectDirectPageY(); break;        // STA ($nn),Y
+        case 0x81: STA_DirectPageIndirectX(); break;        // STA ($nn,X)
+        case 0x8F: STA_Long(); break;                       // STA $nnnnnn
+        case 0x9F: STA_LongX(); break;                      // STA $nnnnnn,X
+        case 0x83: STA_StackRelative(); break;              // STA sr,S
+        case 0x87: STA_DirectPageIndirectLong(); break;     // STA [dp]
+        case 0x93: STA_StackRelativeIndirectY(); break;     // STA (sr,S),Y
+        case 0x97: STA_DirectPageIndirectLongY(); break;    // STA [dp],Y
+
+        // STP - Stop Processor
+        case 0xDB: STP(); break;        // STP
 
         //SDX - Store X Register
         case 0x8E: STX_Absolute(); break;           // STX $nnnn
@@ -1358,6 +1371,86 @@ void CPU::STA_LongX() {
         WriteWord(address, A);
         cycles += 7;
     }
+}
+
+void CPU::STA_StackRelative() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = SP + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        WriteByte(address, A & 0xFF);
+        cycles += 4;
+    } else {
+        // 16-bit mode
+        WriteWord(address, A);
+        cycles += 5;
+    }
+}
+
+void CPU::STA_DirectPageIndirectLong() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+
+    const uint32_t target_address = ReadByte(indirect_addr) |
+                             (ReadByte(indirect_addr + 1) << 8) |
+                             (ReadByte(indirect_addr + 2) << 16);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        WriteByte(target_address, A & 0xFF);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        WriteWord(target_address, A);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::STA_StackRelativeIndirectY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = SP + offset;
+
+    const uint16_t base_address = ReadWord(indirect_addr);
+
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
+    const uint32_t target_address = (DB << 16) | (base_address + y_offset);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        WriteByte(target_address, A & 0xFF);
+        cycles += 7;
+    } else {
+        // 16-bit mode
+        WriteWord(target_address, A);
+        cycles += 8;
+    }
+}
+
+void CPU::STA_DirectPageIndirectLongY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+
+    const uint32_t base_address = ReadByte(indirect_addr) |
+                           (ReadByte(indirect_addr + 1) << 8) |
+                           (ReadByte(indirect_addr + 2) << 16);
+
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
+    const uint32_t target_address = base_address + y_offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        WriteByte(target_address, A & 0xFF);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        WriteWord(target_address, A);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
 }
 
 // STX - Store X Register
@@ -4599,4 +4692,35 @@ void CPU::SBC_StackRelativeIndirectY() {
         SBC16(operand);
         cycles += 8;
     }
+}
+
+void CPU::SEC() {
+    P |= FLAG_C;
+    cycles += 2;
+}
+
+void CPU::SED() {
+    P |= FLAG_D;
+    cycles += 2;
+}
+
+void CPU::SEI() {
+    // This prevents IRQ interrupts from being processed
+    P |= FLAG_I;
+    cycles += 2;
+}
+
+void CPU::SEP() {
+    const uint8_t mask = ReadByte(PC++);
+
+    P |= mask;
+
+    cycles += 3;
+}
+
+void CPU::STP() {
+    stopped = true;
+    cycles += 3;
+
+    // TODO: Implement way to resume processor?
 }

@@ -21,6 +21,7 @@ class CPU {
     Bus* bus;
     uint64_t cycles;
     bool emulation_mode = false;
+    bool stopped = false;
 
     // Status flags
     enum Flags {
@@ -162,6 +163,10 @@ public:
     void STA_DirectPageIndirectX();
     void STA_Long();
     void STA_LongX();
+    void STA_StackRelative();
+    void STA_DirectPageIndirectLong();
+    void STA_StackRelativeIndirectY();
+    void STA_DirectPageIndirectLongY();
 
     void STX_Absolute();
     void STX_DirectPage();
@@ -355,6 +360,13 @@ public:
     void SBC_DirectPageIndirectX();
     void SBC_StackRelative();
     void SBC_StackRelativeIndirectY();
+
+    void SEC();
+    void SED();
+    void SEI();
+    void SEP();
+
+    void STP();
 };
 
 #endif //CPU_H
