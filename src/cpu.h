@@ -260,6 +260,22 @@ public:
     void CMP_IndirectDirectPageLong();
     void CMP_StackRelativeIndirectY();
     void CMP_IndirectDirectPageLongY();
+
+    void EOR_Immediate();
+    void EOR_Absolute();
+    void EOR_AbsoluteX();
+    void EOR_AbsoluteY();
+    void EOR_DirectPage();
+    void EOR_DirectPageX();
+    void EOR_IndirectDirectPage();
+    void EOR_IndirectDirectPageLong();
+    void EOR_IndexedIndirectDirectPageX();
+    void EOR_IndirectDirectPageY();
+    void EOR_IndirectDirectPageLongY();
+    void EOR_AbsoluteLong();
+    void EOR_AbsoluteLongX();
+    void EOR_StackRelative();
+    void EOR_StackRelativeIndirectY();
 };
 
 #endif //CPU_H
