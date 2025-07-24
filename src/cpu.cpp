@@ -283,6 +283,26 @@ void CPU::UpdateBITImmediateFlags16(const uint16_t memory_value, const uint16_t 
     }
 }
 
+void CPU::UpdateLSRFlags8(const uint8_t original_value, const uint8_t result) {
+    // Set carry flag if bit 0 was set
+    if (original_value & 0x01) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+    UpdateNZ8(result);
+}
+
+void CPU::UpdateLSRFlags16(const uint16_t original_value, const uint16_t result) {
+    // Set carry flag if bit 0 was set
+    if (original_value & 0x0001) {
+        P |= FLAG_C;
+    } else {
+        P &= ~FLAG_C;
+    }
+    UpdateNZ16(result);
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
@@ -466,6 +486,13 @@ void CPU::ExecuteInstruction() {
         case 0xBC: LDY_AbsoluteX(); break;          // LDY $nnnn,X
         case 0xA4: LDY_DirectPage(); break;         // LDY $nn
         case 0xB4: LDY_DirectPageX(); break;        // LDY $nn,X
+
+        // LSR - Logical Shift Right
+        case 0x4A: LSR_Accumulator(); break;    // LSR A
+        case 0x4E: LSR_Absolute(); break;       // LSR $nnnn
+        case 0x5E: LSR_AbsoluteX(); break;      // LSR $nnnn,X
+        case 0x46: LSR_DirectPage(); break;     // LSR $nn
+        case 0x56: LSR_DirectPageX(); break;    // LSR $nn,X
 
         // Stack operations
         case 0x48: PHA(); break;  // PHA
@@ -3326,6 +3353,104 @@ void CPU::LDA_IndirectDirectPageLongY() {
         A = value;
         UpdateNZ16(value);
         cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::LSR_Accumulator() {
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = A & 0xFF;
+        const uint8_t result = original >> 1;
+        A = (A & 0xFF00) | result;
+        UpdateLSRFlags8(original, result);
+        cycles += 2;
+    } else { // 16-bit mode
+        const uint16_t original = A;
+        const uint16_t result = original >> 1;
+        A = result;
+        UpdateLSRFlags16(original, result);
+        cycles += 2;
+    }
+}
+
+void CPU::LSR_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(full_address);
+        const uint8_t result = original >> 1;
+        WriteByte(full_address, result);
+        UpdateLSRFlags8(original, result);
+        cycles += 6;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(full_address);
+        const uint16_t result = original >> 1;
+        WriteWord(full_address, result);
+        UpdateLSRFlags16(original, result);
+        cycles += 8;
+    }
+}
+
+void CPU::LSR_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | (base_address + X);
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(full_address);
+        const uint8_t result = original >> 1;
+        WriteByte(full_address, result);
+        UpdateLSRFlags8(original, result);
+        cycles += 7;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(full_address);
+        const uint16_t result = original >> 1;
+        WriteWord(full_address, result);
+        UpdateLSRFlags16(original, result);
+        cycles += 9;
+    }
+}
+
+void CPU::LSR_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(address);
+        const uint8_t result = original >> 1;
+        WriteByte(address, result);
+        UpdateLSRFlags8(original, result);
+        cycles += 5;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(address);
+        const uint16_t result = original >> 1;
+        WriteWord(address, result);
+        UpdateLSRFlags16(original, result);
+        cycles += 7;
+        if (D & 0xFF) cycles++;
+    }
+}
+
+void CPU::LSR_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset + X;
+
+    if (P & FLAG_M) { // 8-bit mode
+        const uint8_t original = ReadByte(address);
+        const uint8_t result = original >> 1;
+        WriteByte(address, result);
+        UpdateLSRFlags8(original, result);
+        cycles += 6;
+        if (D & 0xFF) cycles++;
+    } else { // 16-bit mode
+        const uint16_t original = ReadWord(address);
+        const uint16_t result = original >> 1;
+        WriteWord(address, result);
+        UpdateLSRFlags16(original, result);
+        cycles += 8;
         if (D & 0xFF) cycles++;
     }
 }

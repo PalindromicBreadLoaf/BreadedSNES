@@ -75,6 +75,9 @@ class CPU {
     void UpdateBITImmediateFlags8(uint8_t memory_value, uint8_t acc_value);
     void UpdateBITImmediateFlags16(uint16_t memory_value, uint16_t acc_value);
 
+    void UpdateLSRFlags8(uint8_t original_value, uint8_t result);
+    void UpdateLSRFlags16(uint16_t original_value, uint16_t result);
+
 public:
     explicit CPU(Bus* memory_bus) : bus(memory_bus) {
         Reset();
@@ -281,6 +284,12 @@ public:
     void EOR_AbsoluteLongX();
     void EOR_StackRelative();
     void EOR_StackRelativeIndirectY();
+
+    void LSR_Accumulator();
+    void LSR_Absolute();
+    void LSR_AbsoluteX();
+    void LSR_DirectPage();
+    void LSR_DirectPageX();
 };
 
 #endif //CPU_H
