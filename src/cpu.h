@@ -290,6 +290,22 @@ public:
     void LSR_AbsoluteX();
     void LSR_DirectPage();
     void LSR_DirectPageX();
+
+    void ORA_Immediate();
+    void ORA_Absolute();
+    void ORA_AbsoluteX();
+    void ORA_AbsoluteY();
+    void ORA_DirectPage();
+    void ORA_DirectPageX();
+    void ORA_IndirectDirectPage();
+    void ORA_IndirectDirectPageLong();
+    void ORA_IndexedIndirectDirectPageX();
+    void ORA_IndirectDirectPageY();
+    void ORA_IndirectDirectPageLongY();
+    void ORA_AbsoluteLong();
+    void ORA_AbsoluteLongX();
+    void ORA_StackRelative();
+    void ORA_StackRelativeIndirectY();
 };
 
 #endif //CPU_H
