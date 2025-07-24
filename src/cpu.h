@@ -84,6 +84,12 @@ class CPU {
     uint8_t ROR8(uint8_t value);
     uint16_t ROR16(uint16_t value);
 
+    // Helper methods for SBC operations
+    void SBC8(uint8_t operand);
+    void SBC16(uint16_t operand);
+    uint8_t SBC8_Decimal(uint8_t a, uint8_t operand, bool carry);
+    uint16_t SBC16_Decimal(uint16_t a, uint16_t operand, bool carry);
+
 public:
     explicit CPU(Bus* memory_bus) : bus(memory_bus) {
         Reset();
@@ -333,6 +339,22 @@ public:
     void PER();
     void REP();
     void RTI();
+
+    void SBC_Immediate();
+    void SBC_Absolute();
+    void SBC_AbsoluteLong();
+    void SBC_AbsoluteX();
+    void SBC_AbsoluteLongX();
+    void SBC_AbsoluteY();
+    void SBC_DirectPage();
+    void SBC_DirectPageX();
+    void SBC_DirectPageIndirect();
+    void SBC_DirectPageIndirectLong();
+    void SBC_DirectPageIndirectY();
+    void SBC_DirectPageIndirectLongY();
+    void SBC_DirectPageIndirectX();
+    void SBC_StackRelative();
+    void SBC_StackRelativeIndirectY();
 };
 
 #endif //CPU_H

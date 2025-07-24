@@ -368,6 +368,117 @@ uint16_t CPU::ROR16(uint16_t value) {
     return value;
 }
 
+void CPU::SBC8(const uint8_t operand) {
+    const uint8_t acc = A & 0xFF;
+
+    if (P & FLAG_D) {
+        // Decimal mode
+        const bool carry_in = (P & FLAG_C) != 0;
+        const uint8_t result = SBC8_Decimal(acc, operand, carry_in);
+        A = (A & 0xFF00) | result;
+    } else {
+        // Binary mode
+        const uint16_t carry_in = (P & FLAG_C) ? 0 : 1;  // Note: Inverted carry
+        const uint16_t result = acc - operand - carry_in;
+
+        P &= ~(FLAG_C | FLAG_V | FLAG_N | FLAG_Z);
+
+        if (result <= 0xFF) {
+            P |= FLAG_C;
+        }
+
+        if (((acc ^ operand) & (acc ^ result) & 0x80) != 0) {
+            P |= FLAG_V;
+        }
+
+        A = (A & 0xFF00) | (result & 0xFF);
+        UpdateNZ8(result & 0xFF);
+    }
+}
+
+void CPU::SBC16(const uint16_t operand) {
+    if (P & FLAG_D) {
+        // Decimal mode
+        const bool carry_in = (P & FLAG_C) != 0;
+        A = SBC16_Decimal(A, operand, carry_in);
+    } else {
+        // Binary mode
+        const uint32_t carry_in = (P & FLAG_C) ? 0 : 1;
+        const uint32_t result = A - operand - carry_in;
+
+        P &= ~(FLAG_C | FLAG_V | FLAG_N | FLAG_Z);
+
+        if (result <= 0xFFFF) {
+            P |= FLAG_C;
+        }
+
+        if (((A ^ operand) & (A ^ result) & 0x8000) != 0) {
+            P |= FLAG_V;
+        }
+
+        A = result & 0xFFFF;
+        UpdateNZ16(A);
+    }
+}
+
+uint8_t CPU::SBC8_Decimal(const uint8_t a, const uint8_t operand, const bool carry) {
+    uint16_t result = a - operand - (carry ? 0 : 1);
+
+    // Adjust for decimal mode
+    if ((result & 0x0F) > 9 || (result & 0x10) != 0) {
+        result -= 6;
+    }
+    if (result > 0x99) {
+        result -= 0x60;
+    }
+
+    P &= ~(FLAG_C | FLAG_N | FLAG_Z);
+
+    if (result <= 0xFF) {
+        P |= FLAG_C;
+    }
+
+    const uint8_t final_result = result & 0xFF;
+    UpdateNZ8(final_result);
+
+    return final_result;
+}
+
+uint16_t CPU::SBC16_Decimal(const uint16_t a, const uint16_t operand, const bool carry) {
+    uint32_t result = a - operand - (carry ? 0 : 1);
+
+    // Adjust low nibble
+    if ((result & 0x000F) > 9 || (result & 0x0010) != 0) {
+        result -= 0x0006;
+    }
+
+    // Adjust second nibble
+    if ((result & 0x00F0) > 0x90 || (result & 0x0100) != 0) {
+        result -= 0x0060;
+    }
+
+    // Adjust third nibble
+    if ((result & 0x0F00) > 0x900 || (result & 0x1000) != 0) {
+        result -= 0x0600;
+    }
+
+    // Adjust high nibble
+    if (result > 0x9999) {
+        result -= 0x6000;
+    }
+
+    P &= ~(FLAG_C | FLAG_N | FLAG_Z);
+
+    if (result <= 0xFFFF) {
+        P |= FLAG_C;
+    }
+
+    const uint16_t final_result = result & 0xFFFF;
+    UpdateNZ16(final_result);
+
+    return final_result;
+}
+
 void CPU::ExecuteInstruction() {
     // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
@@ -622,6 +733,23 @@ void CPU::ExecuteInstruction() {
         case 0x7E: ROR_AbsoluteX(); break;      // ROR $nnnn,X
         case 0x66: ROR_DirectPage(); break;     // ROR $nn
         case 0x76: ROR_DirectPageX(); break;    // ROR $nn,X
+
+        // SBC - Subtract with Carry
+        case 0xE9: SBC_Immediate(); break;              // SBC #$nn or #$nnnn
+        case 0xED: SBC_Absolute(); break;               // SBC $nnnn
+        case 0xEF: SBC_AbsoluteLong(); break;           // SBC $nnnnnn
+        case 0xFD: SBC_AbsoluteX(); break;              // SBC $nnnn,X
+        case 0xFF: SBC_AbsoluteLongX(); break;          // SBC $nnnnnn,X
+        case 0xF9: SBC_AbsoluteY(); break;              // SBC $nnnn,Y
+        case 0xE5: SBC_DirectPage(); break;             // SBC $nn
+        case 0xF5: SBC_DirectPageX(); break;            // SBC $nn,X
+        case 0xF2: SBC_DirectPageIndirect(); break;     // SBC ($nn)
+        case 0xE7: SBC_DirectPageIndirectLong(); break; // SBC [$nn]
+        case 0xF1: SBC_DirectPageIndirectY(); break;    // SBC ($nn),Y
+        case 0xF7: SBC_DirectPageIndirectLongY(); break;// SBC [$nn],Y
+        case 0xE1: SBC_DirectPageIndirectX(); break;    // SBC ($nn,X)
+        case 0xE3: SBC_StackRelative(); break;          // SBC $nn,S
+        case 0xF3: SBC_StackRelativeIndirectY(); break; // SBC ($nn,S),Y
 
         //SDA - Store Accumulator
         case 0x8D: STA_Absolute(); break;               // STA $nnnn
@@ -4160,5 +4288,315 @@ void CPU::RTI() {
         PB = PopByte();
         PC = (static_cast<uint32_t>(PB) << 16) | pc_addr;
         cycles += 6;
+    }
+}
+
+void CPU::SBC_Immediate() {
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(PC++);
+        SBC8(operand);
+        cycles += 2;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(PC);
+        PC += 2;
+        SBC16(operand);
+        cycles += 3;
+    }
+}
+
+void CPU::SBC_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(full_address);
+        SBC8(operand);
+        cycles += 4;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(full_address);
+        SBC16(operand);
+        cycles += 5;
+    }
+}
+
+void CPU::SBC_AbsoluteLong() {
+    const uint32_t address = ReadByte(PC++) | (ReadByte(PC++) << 8) | (ReadByte(PC++) << 16);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 6;
+    }
+}
+
+void CPU::SBC_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
+    const uint32_t address = (DB << 16) | (base_address + x_offset);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 4;
+        if ((base_address & 0xFF00) != ((base_address + x_offset) & 0xFF00)) {
+            cycles++;
+        }
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 5;
+        if ((base_address & 0xFF00) != ((base_address + x_offset) & 0xFF00)) {
+            cycles++;
+        }
+    }
+}
+
+void CPU::SBC_AbsoluteLongX() {
+    const uint32_t base_address = ReadByte(PC++) | (ReadByte(PC++) << 8) | (ReadByte(PC++) << 16);
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
+    const uint32_t address = base_address + x_offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 6;
+    }
+}
+
+void CPU::SBC_AbsoluteY() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
+    const uint32_t address = (DB << 16) | (base_address + y_offset);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 4;
+        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
+            cycles++;
+        }
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 5;
+        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
+            cycles++;
+        }
+    }
+}
+
+void CPU::SBC_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 3;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 4;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
+    const uint32_t address = D + offset + x_offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 4;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 5;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_DirectPageIndirect() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+    const uint16_t address = ReadWord(indirect_addr);
+    const uint32_t final_address = (DB << 16) | address;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(final_address);
+        SBC8(operand);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(final_address);
+        SBC16(operand);
+        cycles += 6;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_DirectPageIndirectLong() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+    const uint32_t address = ReadByte(indirect_addr) |
+                      (ReadByte(indirect_addr + 1) << 8) |
+                      (ReadByte(indirect_addr + 2) << 16);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_DirectPageIndirectY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+    const uint16_t base_address = ReadWord(indirect_addr);
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
+    const uint32_t address = (DB << 16) | (base_address + y_offset);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 5;
+        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
+            cycles++;
+        }
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 6;
+        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
+            cycles++;
+        }
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_DirectPageIndirectLongY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = D + offset;
+    const uint32_t base_address = ReadByte(indirect_addr) |
+                           (ReadByte(indirect_addr + 1) << 8) |
+                           (ReadByte(indirect_addr + 2) << 16);
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
+    const uint32_t address = base_address + y_offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_DirectPageIndirectX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
+    const uint32_t indirect_addr = D + offset + x_offset;
+    const uint16_t address = ReadWord(indirect_addr);
+    const uint32_t final_address = (DB << 16) | address;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(final_address);
+        SBC8(operand);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(final_address);
+        SBC16(operand);
+        cycles += 7;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::SBC_StackRelative() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = SP + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 4;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 5;
+    }
+}
+
+void CPU::SBC_StackRelativeIndirectY() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t indirect_addr = SP + offset;
+    const uint16_t base_address = ReadWord(indirect_addr);
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
+    const uint32_t address = (DB << 16) | (base_address + y_offset);
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += 7;
+    } else {
+        // 16-bit mode
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += 8;
     }
 }
