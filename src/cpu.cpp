@@ -335,6 +335,20 @@ uint16_t CPU::ROL16(uint16_t value) {
     return value;
 }
 
+void CPU::ROL_AtAddress(const uint32_t address, const int base_cycles_8bit, const int base_cycles_16bit) {
+    if (P & FLAG_M) {
+        uint8_t value = ReadByte(address);
+        value = ROL8(value);
+        WriteByte(address, value);
+        cycles += base_cycles_8bit;
+    } else {
+        uint16_t value = ReadWord(address);
+        value = ROL16(value);
+        WriteWord(address, value);
+        cycles += base_cycles_16bit;
+    }
+}
+
 uint8_t CPU::ROR8(uint8_t value) {
     const bool old_carry = (P & FLAG_C) != 0;
     const bool new_carry = (value & 0x01) != 0;
@@ -4190,8 +4204,8 @@ void CPU::MVN() {
 }
 
 void CPU::MVP() {
-    uint8_t dest_bank = ReadByte(PC++);
-    uint8_t src_bank = ReadByte(PC++);
+    const uint8_t dest_bank = ReadByte(PC++);
+    const uint8_t src_bank = ReadByte(PC++);
 
     const uint32_t src_address = (src_bank << 16) | X;
     const uint32_t dest_address = (dest_bank << 16) | Y;
@@ -4232,19 +4246,7 @@ void CPU::ROL_Absolute() {
     const uint16_t address = ReadWord(PC);
     PC += 2;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte((DB << 16) | address);
-        value = ROL8(value);
-        WriteByte((DB << 16) | address, value);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord((DB << 16) | address);
-        value = ROL16(value);
-        WriteWord((DB << 16) | address, value);
-        cycles += 7;
-    }
+    ROL_AtAddress((DB << 16) | address, 6, 7);
 }
 
 void CPU::ROL_AbsoluteX() {
@@ -4252,40 +4254,14 @@ void CPU::ROL_AbsoluteX() {
     PC += 2;
     const uint32_t address = (DB << 16) | (base_address + X);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte(address);
-        value = ROL8(value);
-        WriteByte(address, value);
-        cycles += 7;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord(address);
-        value = ROL16(value);
-        WriteWord(address, value);
-        cycles += 8;
-    }
+    ROL_AtAddress(address, 7, 8);
 }
 
 void CPU::ROL_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = D + offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte(address);
-        value = ROL8(value);
-        WriteByte(address, value);
-        cycles += 5;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord(address);
-        value = ROL16(value);
-        WriteWord(address, value);
-        cycles += 6;
-    }
-
-    // Add extra cycle if D register low byte is non-zero
+    ROL_AtAddress(address, 5, 6);
     if (D & 0xFF) cycles++;
 }
 
@@ -4293,20 +4269,7 @@ void CPU::ROL_DirectPageX() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = D + offset + (P & FLAG_X ? (X & 0xFF) : X);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte(address);
-        value = ROL8(value);
-        WriteByte(address, value);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord(address);
-        value = ROL16(value);
-        WriteWord(address, value);
-        cycles += 7;
-    }
-
+    ROL_AtAddress(address, 6, 7);
     if (D & 0xFF) cycles++;
 }
 
