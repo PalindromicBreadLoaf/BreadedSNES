@@ -91,6 +91,9 @@ class CPU {
     void SBC16(uint16_t operand);
     uint8_t SBC8_Decimal(uint8_t a, uint8_t operand, bool carry);
     uint16_t SBC16_Decimal(uint16_t a, uint16_t operand, bool carry);
+    void SBC_FromAddress(uint32_t address, int base_cycles_8bit, int base_cycles_16bit);
+    void SBC_FromAddress_PageCross(uint32_t address, uint16_t base_address, uint16_t offset, int base_cycles_8bit,
+                                   int base_cycles_16bit);
 
 public:
     explicit CPU(Bus* memory_bus) : bus(memory_bus) {

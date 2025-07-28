@@ -478,6 +478,26 @@ uint16_t CPU::SBC16_Decimal(const uint16_t a, const uint16_t operand, const bool
     return final_result;
 }
 
+void CPU::SBC_FromAddress(const uint32_t address, const int base_cycles_8bit, const int base_cycles_16bit) {
+    if (P & FLAG_M) {
+        const uint8_t operand = ReadByte(address);
+        SBC8(operand);
+        cycles += base_cycles_8bit;
+    } else {
+        const uint16_t operand = ReadWord(address);
+        SBC16(operand);
+        cycles += base_cycles_16bit;
+    }
+}
+
+void CPU::SBC_FromAddress_PageCross(const uint32_t address, const uint16_t base_address, const uint16_t offset, const int base_cycles_8bit, const int base_cycles_16bit) {
+    SBC_FromAddress(address, base_cycles_8bit, base_cycles_16bit);
+    if ((base_address & 0xFF00) != ((base_address + offset) & 0xFF00)) {
+        cycles++;
+    }
+}
+
+
 void CPU::ExecuteInstruction() {
     switch (const uint8_t opcode = bus->Read(PC++)) {
         // ADC - Add with Carry
@@ -4416,15 +4436,11 @@ void CPU::RTI() {
 
 void CPU::SBC_Immediate() {
     if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(PC++);
-        SBC8(operand);
+        SBC8(ReadByte(PC++));
         cycles += 2;
     } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(PC);
+        SBC16(ReadWord(PC));
         PC += 2;
-        SBC16(operand);
         cycles += 3;
     }
 }
@@ -4432,35 +4448,12 @@ void CPU::SBC_Immediate() {
 void CPU::SBC_Absolute() {
     const uint16_t address = ReadWord(PC);
     PC += 2;
-    const uint32_t full_address = (DB << 16) | address;
-
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        SBC8(operand);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        SBC16(operand);
-        cycles += 5;
-    }
+    SBC_FromAddress((DB << 16) | address, 4, 5);
 }
 
 void CPU::SBC_AbsoluteLong() {
     const uint32_t address = ReadByte(PC++) | (ReadByte(PC++) << 8) | (ReadByte(PC++) << 16);
-
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 5;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 6;
-    }
+    SBC_FromAddress(address, 5, 6);
 }
 
 void CPU::SBC_AbsoluteX() {
@@ -4469,41 +4462,14 @@ void CPU::SBC_AbsoluteX() {
     const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
     const uint32_t address = (DB << 16) | (base_address + x_offset);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 4;
-        if ((base_address & 0xFF00) != ((base_address + x_offset) & 0xFF00)) {
-            cycles++;
-        }
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 5;
-        if ((base_address & 0xFF00) != ((base_address + x_offset) & 0xFF00)) {
-            cycles++;
-        }
-    }
+    SBC_FromAddress_PageCross(address, base_address, x_offset, 4, 5);
 }
 
 void CPU::SBC_AbsoluteLongX() {
     const uint32_t base_address = ReadByte(PC++) | (ReadByte(PC++) << 8) | (ReadByte(PC++) << 16);
     const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
-    const uint32_t address = base_address + x_offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 5;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 6;
-    }
+    SBC_FromAddress(base_address + x_offset, 5, 6);
 }
 
 void CPU::SBC_AbsoluteY() {
@@ -4512,41 +4478,14 @@ void CPU::SBC_AbsoluteY() {
     const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
     const uint32_t address = (DB << 16) | (base_address + y_offset);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 4;
-        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
-            cycles++;
-        }
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 5;
-        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
-            cycles++;
-        }
-    }
+    SBC_FromAddress_PageCross(address, base_address, y_offset, 4, 5);
 }
 
 void CPU::SBC_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = D + offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 3;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 4;
-    }
-
+    SBC_FromAddress(address, 3, 4);
     if (D & 0xFF) cycles++;
 }
 
@@ -4555,18 +4494,7 @@ void CPU::SBC_DirectPageX() {
     const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
     const uint32_t address = D + offset + x_offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 5;
-    }
-
+    SBC_FromAddress(address, 4, 5);
     if (D & 0xFF) cycles++;
 }
 
@@ -4576,40 +4504,18 @@ void CPU::SBC_DirectPageIndirect() {
     const uint16_t address = ReadWord(indirect_addr);
     const uint32_t final_address = (DB << 16) | address;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(final_address);
-        SBC8(operand);
-        cycles += 5;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(final_address);
-        SBC16(operand);
-        cycles += 6;
-    }
-
+    SBC_FromAddress(final_address, 5, 6);
     if (D & 0xFF) cycles++;
 }
 
 void CPU::SBC_DirectPageIndirectLong() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t indirect_addr = D + offset;
-    const uint32_t address = ReadByte(indirect_addr) |
-                      (ReadByte(indirect_addr + 1) << 8) |
-                      (ReadByte(indirect_addr + 2) << 16);
+    const uint32_t address = ReadByte(indirect_addr)
+                           | (ReadByte(indirect_addr + 1) << 8)
+                           | (ReadByte(indirect_addr + 2) << 16);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 7;
-    }
-
+    SBC_FromAddress(address, 6, 7);
     if (D & 0xFF) cycles++;
 }
 
@@ -4620,48 +4526,19 @@ void CPU::SBC_DirectPageIndirectY() {
     const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
     const uint32_t address = (DB << 16) | (base_address + y_offset);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 5;
-        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
-            cycles++;
-        }
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 6;
-        if ((base_address & 0xFF00) != ((base_address + y_offset) & 0xFF00)) {
-            cycles++;
-        }
-    }
-
+    SBC_FromAddress_PageCross(address, base_address, y_offset, 5, 6);
     if (D & 0xFF) cycles++;
 }
 
 void CPU::SBC_DirectPageIndirectLongY() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t indirect_addr = D + offset;
-    const uint32_t base_address = ReadByte(indirect_addr) |
-                           (ReadByte(indirect_addr + 1) << 8) |
-                           (ReadByte(indirect_addr + 2) << 16);
+    const uint32_t base_address = ReadByte(indirect_addr)
+                                | (ReadByte(indirect_addr + 1) << 8)
+                                | (ReadByte(indirect_addr + 2) << 16);
     const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
-    const uint32_t address = base_address + y_offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 7;
-    }
-
+    SBC_FromAddress(base_address + y_offset, 6, 7);
     if (D & 0xFF) cycles++;
 }
 
@@ -4672,18 +4549,7 @@ void CPU::SBC_DirectPageIndirectX() {
     const uint16_t address = ReadWord(indirect_addr);
     const uint32_t final_address = (DB << 16) | address;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(final_address);
-        SBC8(operand);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(final_address);
-        SBC16(operand);
-        cycles += 7;
-    }
-
+    SBC_FromAddress(final_address, 6, 7);
     if (D & 0xFF) cycles++;
 }
 
@@ -4691,17 +4557,7 @@ void CPU::SBC_StackRelative() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = SP + offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 5;
-    }
+    SBC_FromAddress(address, 4, 5);
 }
 
 void CPU::SBC_StackRelativeIndirectY() {
@@ -4711,17 +4567,7 @@ void CPU::SBC_StackRelativeIndirectY() {
     const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
     const uint32_t address = (DB << 16) | (base_address + y_offset);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        SBC8(operand);
-        cycles += 7;
-    } else {
-        // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        SBC16(operand);
-        cycles += 8;
-    }
+    SBC_FromAddress(address, 7, 8);
 }
 
 void CPU::SEC() {
