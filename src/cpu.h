@@ -22,6 +22,7 @@ class CPU {
     uint64_t cycles;
     bool emulation_mode = false;
     bool stopped = false;
+    bool waiting_for_interrupt = false;
 
     // Status flags
     enum Flags {
@@ -372,6 +373,29 @@ public:
     void STZ_AbsoluteX();
     void STZ_DirectPage();
     void STZ_DirectPageX();
+
+    void TAX();
+    void TAY();
+    void TCD();
+    void TCS();
+    void TDC();
+    void TSC();
+    void TSX();
+    void TXA();
+    void TXS();
+    void TXY();
+    void TYA();
+    void TYX();
+
+    void TRB_DirectPage();
+    void TRB_Absolute();
+    void TSB_DirectPage();
+    void TSB_Absolute();
+
+    void WAI();
+    void WDM(); // Reserved for future expansion - whatever that means
+    void XBA();
+    void XCE();
 };
 
 #endif //CPU_H

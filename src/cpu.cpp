@@ -480,7 +480,6 @@ uint16_t CPU::SBC16_Decimal(const uint16_t a, const uint16_t operand, const bool
 }
 
 void CPU::ExecuteInstruction() {
-    // TODO: Actual Opcode decoding
     switch (const uint8_t opcode = bus->Read(PC++)) {
         // ADC - Add with Carry
         case 0x69: ADC_Immediate(); break;              // ADC #$nn/#$nnnn
@@ -791,6 +790,32 @@ void CPU::ExecuteInstruction() {
         case 0x9E: STZ_AbsoluteX(); break;     // STZ $nnnn,X
         case 0x64: STZ_DirectPage(); break;    // STZ $nn
         case 0x74: STZ_DirectPageX(); break;   // STZ $nn,X
+
+        // Transfer instructions
+        case 0xAA: TAX(); break;  // TAX
+        case 0xA8: TAY(); break;  // TAY
+        case 0x5B: TCD(); break;  // TCD
+        case 0x1B: TCS(); break;  // TCS
+        case 0x7B: TDC(); break;  // TDC
+        case 0x3B: TSC(); break;  // TSC
+        case 0xBA: TSX(); break;  // TSX
+        case 0x8A: TXA(); break;  // TXA
+        case 0x9A: TXS(); break;  // TXS
+        case 0x9B: TXY(); break;  // TXY
+        case 0x98: TYA(); break;  // TYA
+        case 0xBB: TYX(); break;  // TYX
+
+        // Test and set/reset bit instructions
+        case 0x14: TRB_DirectPage(); break;  // TRB dp
+        case 0x1C: TRB_Absolute(); break;    // TRB addr
+        case 0x04: TSB_DirectPage(); break;  // TSB dp
+        case 0x0C: TSB_Absolute(); break;    // TSB addr
+
+        // Special instructions
+        case 0xCB: WAI(); break;  // WAI
+        case 0x42: WDM(); break;  // WDM
+        case 0xEB: XBA(); break;  // XBA
+        case 0xFB: XCE(); break;  // XCE
 
         default:
             std::cout << "Unknown opcode: 0x" << std::hex << static_cast<int>(opcode) << std::endl;
@@ -4789,4 +4814,313 @@ void CPU::STZ_DirectPageX() {
     }
 
     if (D & 0xFF) cycles++;
+}
+
+void CPU::TAX() {
+    if (P & FLAG_X) {
+        // 8-bit
+        X = (X & 0xFF00) | (A & 0x00FF);
+        UpdateNZ8(X & 0xFF);
+    } else {
+        // 16-bit
+        X = A;
+        UpdateNZ16(X);
+    }
+    cycles += 2;
+}
+
+void CPU::TAY() {
+    if (P & FLAG_X) {
+        // 8-bit
+        Y = (Y & 0xFF00) | (A & 0x00FF);
+        UpdateNZ8(Y & 0xFF);
+    } else {
+        // 16-bit
+        Y = A;
+        UpdateNZ16(Y);
+    }
+    cycles += 2;
+}
+
+void CPU::TCD() {
+    D = A;
+    UpdateNZ16(D);
+    cycles += 2;
+}
+
+void CPU::TCS() {
+    SP = A;
+    cycles += 2;
+}
+
+void CPU::TDC() {
+    A = D;
+    UpdateNZ16(A);
+    cycles += 2;
+}
+
+void CPU::TSC() {
+    A = SP;
+    UpdateNZ16(A);
+    cycles += 2;
+}
+
+void CPU::TSX() {
+    if (P & FLAG_X) {
+        // 8-bit
+        X = (X & 0xFF00) | (SP & 0x00FF);
+        UpdateNZ8(X & 0xFF);
+    } else {
+        // 16-bit
+        X = SP;
+        UpdateNZ16(X);
+    }
+    cycles += 2;
+}
+
+void CPU::TXA() {
+    if (P & FLAG_M) {
+        // 8-bit accumulator
+        A = (A & 0xFF00) | (X & 0x00FF);
+        UpdateNZ8(A & 0xFF);
+    } else {
+        // 16-bit accumulator
+        if (P & FLAG_X) {
+            // 8-bit
+            A = X & 0x00FF;
+        } else {
+            // 16-bit
+            A = X;
+        }
+        UpdateNZ16(A);
+    }
+    cycles += 2;
+}
+
+void CPU::TXS() {
+    if (P & FLAG_X) {
+        // 8-bit
+        SP = 0x0100 | (X & 0x00FF);
+    } else {
+        // 16-bit
+        SP = X;
+    }
+    cycles += 2;
+}
+
+void CPU::TXY() {
+    if (P & FLAG_X) {
+        // 8-bit
+        Y = (Y & 0xFF00) | (X & 0x00FF);
+        UpdateNZ8(Y & 0xFF);
+    } else {
+        // 16-bit
+        Y = X;
+        UpdateNZ16(Y);
+    }
+    cycles += 2;
+}
+
+void CPU::TYA() {
+    if (P & FLAG_M) {
+        // 8-bit accumulator
+        A = (A & 0xFF00) | (Y & 0x00FF);
+        UpdateNZ8(A & 0xFF);
+    } else {
+        // 16-bit accumulator
+        if (P & FLAG_X) {
+            A = Y & 0x00FF;
+        } else {
+            // 16-bit index
+            A = Y;
+        }
+        UpdateNZ16(A);
+    }
+    cycles += 2;
+}
+
+void CPU::TYX() {
+    if (P & FLAG_X) {
+        // 8-bit index registers
+        X = (X & 0xFF00) | (Y & 0x00FF);
+        UpdateNZ8(X & 0xFF);
+    } else {
+        // 16-bit index registers
+        X = Y;
+        UpdateNZ16(X);
+    }
+    cycles += 2;
+}
+
+
+void CPU::TRB_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t memory_value = ReadByte(address);
+
+        if (const uint8_t test_result = memory_value & (A & 0xFF); test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value &= ~(A & 0xFF);
+        WriteByte(address, memory_value);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        uint16_t memory_value = ReadWord(address);
+
+        if (const uint16_t test_result = memory_value & A; test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value &= ~A;
+        WriteWord(address, memory_value);
+        cycles += 6;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::TRB_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t memory_value = ReadByte(full_address);
+
+        if (const uint8_t test_result = memory_value & (A & 0xFF); test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value &= ~(A & 0xFF);
+        WriteByte(full_address, memory_value);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        uint16_t memory_value = ReadWord(full_address);
+
+        if (const uint16_t test_result = memory_value & A; test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value &= ~A;
+        WriteWord(full_address, memory_value);
+        cycles += 7;
+    }
+}
+
+void CPU::TSB_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t memory_value = ReadByte(address);
+
+        if (const uint8_t test_result = memory_value & (A & 0xFF); test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value |= (A & 0xFF);
+        WriteByte(address, memory_value);
+        cycles += 5;
+    } else {
+        // 16-bit mode
+        uint16_t memory_value = ReadWord(address);
+
+        if (const uint16_t test_result = memory_value & A; test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value |= A;
+        WriteWord(address, memory_value);
+        cycles += 6;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::TSB_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) {
+        // 8-bit mode
+        uint8_t memory_value = ReadByte(full_address);
+
+        if (const uint8_t test_result = memory_value & (A & 0xFF); test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value |= (A & 0xFF);
+        WriteByte(full_address, memory_value);
+        cycles += 6;
+    } else {
+        // 16-bit mode
+        uint16_t memory_value = ReadWord(full_address);
+
+        if (const uint16_t test_result = memory_value & A; test_result == 0) {
+            P |= FLAG_Z;
+        } else {
+            P &= ~FLAG_Z;
+        }
+
+        memory_value |= A;
+        WriteWord(full_address, memory_value);
+        cycles += 7;
+    }
+}
+
+void CPU::WAI() {
+    // TODO: Implement checking for interrupts (IRQ, NMI, RESET)
+    waiting_for_interrupt = true;
+    cycles += 3;
+}
+
+void CPU::WDM() {
+    // I don't think this does anything. Just here for completeness
+    PC++;
+    cycles += 2;
+}
+
+void CPU::XBA() {
+    const uint8_t temp = A & 0xFF;
+    A = (A >> 8) | ((temp) << 8);
+
+    UpdateNZ8(A & 0xFF);
+    cycles += 3;
+}
+
+void CPU::XCE() {
+
+    const bool old_carry = (P & FLAG_C) != 0;
+    const bool old_emulation = emulation_mode;
+
+    emulation_mode = old_carry;
+
+    if (old_emulation) {
+         P |= FLAG_C;
+    }
+
+    cycles += 2;
 }
