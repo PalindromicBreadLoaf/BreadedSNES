@@ -367,6 +367,20 @@ uint16_t CPU::ROR16(uint16_t value) {
     return value;
 }
 
+void CPU::ROR_AtAddress(const uint32_t address, const int base_cycles_8bit, const int base_cycles_16bit) {
+    if (P & FLAG_M) {
+        uint8_t value = ReadByte(address);
+        value = ROR8(value);
+        WriteByte(address, value);
+        cycles += base_cycles_8bit;
+    } else {
+        uint16_t value = ReadWord(address);
+        value = ROR16(value);
+        WriteWord(address, value);
+        cycles += base_cycles_16bit;
+    }
+}
+
 void CPU::SBC8(const uint8_t operand) {
     const uint8_t acc = A & 0xFF;
 
@@ -4313,19 +4327,7 @@ void CPU::ROR_Absolute() {
     const uint16_t address = ReadWord(PC);
     PC += 2;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte((DB << 16) | address);
-        value = ROR8(value);
-        WriteByte((DB << 16) | address, value);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord((DB << 16) | address);
-        value = ROR16(value);
-        WriteWord((DB << 16) | address, value);
-        cycles += 7;
-    }
+    ROR_AtAddress((DB << 16) | address, 6, 7);
 }
 
 void CPU::ROR_AbsoluteX() {
@@ -4333,39 +4335,14 @@ void CPU::ROR_AbsoluteX() {
     PC += 2;
     const uint32_t address = (DB << 16) | (base_address + X);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte(address);
-        value = ROR8(value);
-        WriteByte(address, value);
-        cycles += 7;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord(address);
-        value = ROR16(value);
-        WriteWord(address, value);
-        cycles += 8;
-    }
+    ROR_AtAddress(address, 7, 8);
 }
 
 void CPU::ROR_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = D + offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte(address);
-        value = ROR8(value);
-        WriteByte(address, value);
-        cycles += 5;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord(address);
-        value = ROR16(value);
-        WriteWord(address, value);
-        cycles += 6;
-    }
-
+    ROR_AtAddress(address, 5, 6);
     if (D & 0xFF) cycles++;
 }
 
@@ -4373,20 +4350,7 @@ void CPU::ROR_DirectPageX() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = D + offset + (P & FLAG_X ? (X & 0xFF) : X);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        uint8_t value = ReadByte(address);
-        value = ROR8(value);
-        WriteByte(address, value);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        uint16_t value = ReadWord(address);
-        value = ROR16(value);
-        WriteWord(address, value);
-        cycles += 7;
-    }
-
+    ROR_AtAddress(address, 6, 7);
     if (D & 0xFF) cycles++;
 }
 

@@ -85,6 +85,7 @@ class CPU {
     uint16_t ROL16(uint16_t value);
     uint8_t ROR8(uint8_t value);
     uint16_t ROR16(uint16_t value);
+    void ROR_AtAddress(uint32_t address, int base_cycles_8bit, int base_cycles_16bit);
 
     // Helper methods for SBC operations
     void SBC8(uint8_t operand);
