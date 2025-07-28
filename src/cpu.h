@@ -95,6 +95,8 @@ class CPU {
     void SBC_FromAddress_PageCross(uint32_t address, uint16_t base_address, uint16_t offset, int base_cycles_8bit,
                                    int base_cycles_16bit);
 
+    void STZ_ToAddress(uint32_t address, int base_cycles_8bit, int base_cycles_16bit);
+
 public:
     explicit CPU(Bus* memory_bus) : bus(memory_bus) {
         Reset();

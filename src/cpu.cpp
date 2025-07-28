@@ -497,6 +497,15 @@ void CPU::SBC_FromAddress_PageCross(const uint32_t address, const uint16_t base_
     }
 }
 
+void CPU::STZ_ToAddress(const uint32_t address, const int base_cycles_8bit, const int base_cycles_16bit) {
+    if (P & FLAG_M) {
+        WriteByte(address, 0x00);
+        cycles += base_cycles_8bit;
+    } else {
+        WriteWord(address, 0x0000);
+        cycles += base_cycles_16bit;
+    }
+}
 
 void CPU::ExecuteInstruction() {
     switch (const uint8_t opcode = bus->Read(PC++)) {
@@ -4606,13 +4615,7 @@ void CPU::STZ_Absolute() {
     PC += 2;
     const uint32_t full_address = (DB << 16) | address;
 
-    if (P & FLAG_M) {
-        WriteByte(full_address, 0x00);
-        cycles += 4;
-    } else {
-        WriteWord(full_address, 0x0000);
-        cycles += 5;
-    }
+    STZ_ToAddress(full_address, 4, 5);
 }
 
 void CPU::STZ_AbsoluteX() {
@@ -4621,27 +4624,14 @@ void CPU::STZ_AbsoluteX() {
     const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
     const uint32_t address = (DB << 16) | (base_address + x_offset);
 
-    if (P & FLAG_M) {
-        WriteByte(address, 0x00);
-        cycles += 5;
-    } else {
-        WriteWord(address, 0x0000);
-        cycles += 6;
-    }
+    STZ_ToAddress(address, 5, 6);
 }
 
 void CPU::STZ_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = D + offset;
 
-    if (P & FLAG_M) {
-        WriteByte(address, 0x00);
-        cycles += 3;
-    } else {
-        WriteWord(address, 0x0000);
-        cycles += 4;
-    }
-
+    STZ_ToAddress(address, 3, 4);
     if (D & 0xFF) cycles++;
 }
 
@@ -4649,14 +4639,7 @@ void CPU::STZ_DirectPageX() {
     const uint8_t offset = ReadByte(PC++);
     const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
     const uint32_t address = D + offset + x_offset;
-
-    if (P & FLAG_M) {
-        WriteByte(address, 0x00);
-        cycles += 4;
-    } else {
-        WriteWord(address, 0x0000);
-        cycles += 5;
-    }
+    STZ_ToAddress(address, 4, 5);
 
     if (D & 0xFF) cycles++;
 }
