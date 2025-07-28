@@ -367,6 +367,11 @@ public:
     void SEP();
 
     void STP();
+
+    void STZ_Absolute();
+    void STZ_AbsoluteX();
+    void STZ_DirectPage();
+    void STZ_DirectPageX();
 };
 
 #endif //CPU_H

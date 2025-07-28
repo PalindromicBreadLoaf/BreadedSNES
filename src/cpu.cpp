@@ -786,6 +786,12 @@ void CPU::ExecuteInstruction() {
         case 0x84: STY_DirectPage();  break;        // STY $nn
         case 0x94: STY_DirectPageX(); break;        // STY $nn,X
 
+        // STZ - Store Zero
+        case 0x9C: STZ_Absolute(); break;      // STZ $nnnn
+        case 0x9E: STZ_AbsoluteX(); break;     // STZ $nnnn,X
+        case 0x64: STZ_DirectPage(); break;    // STZ $nn
+        case 0x74: STZ_DirectPageX(); break;   // STZ $nn,X
+
         default:
             std::cout << "Unknown opcode: 0x" << std::hex << static_cast<int>(opcode) << std::endl;
             break;
@@ -4723,4 +4729,64 @@ void CPU::STP() {
     cycles += 3;
 
     // TODO: Implement way to resume processor?
+}
+
+void CPU::STZ_Absolute() {
+    const uint16_t address = ReadWord(PC);
+    PC += 2;
+    const uint32_t full_address = (DB << 16) | address;
+
+    if (P & FLAG_M) {
+        WriteByte(full_address, 0x00);
+        cycles += 4;
+    } else {
+        WriteWord(full_address, 0x0000);
+        cycles += 5;
+    }
+}
+
+void CPU::STZ_AbsoluteX() {
+    const uint16_t base_address = ReadWord(PC);
+    PC += 2;
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
+    const uint32_t address = (DB << 16) | (base_address + x_offset);
+
+    if (P & FLAG_M) {
+        WriteByte(address, 0x00);
+        cycles += 5;
+    } else {
+        WriteWord(address, 0x0000);
+        cycles += 6;
+    }
+}
+
+void CPU::STZ_DirectPage() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint32_t address = D + offset;
+
+    if (P & FLAG_M) {
+        WriteByte(address, 0x00);
+        cycles += 3;
+    } else {
+        WriteWord(address, 0x0000);
+        cycles += 4;
+    }
+
+    if (D & 0xFF) cycles++;
+}
+
+void CPU::STZ_DirectPageX() {
+    const uint8_t offset = ReadByte(PC++);
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
+    const uint32_t address = D + offset + x_offset;
+
+    if (P & FLAG_M) {
+        WriteByte(address, 0x00);
+        cycles += 4;
+    } else {
+        WriteWord(address, 0x0000);
+        cycles += 5;
+    }
+
+    if (D & 0xFF) cycles++;
 }
