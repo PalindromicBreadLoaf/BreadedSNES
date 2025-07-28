@@ -20,7 +20,7 @@ class CPU {
 
     Bus* bus;
     uint64_t cycles;
-    bool emulation_mode = false;
+    bool emulation_mode = true;
     bool stopped = false;
     bool waiting_for_interrupt = false;
 

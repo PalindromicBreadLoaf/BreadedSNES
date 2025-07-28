@@ -8,12 +8,11 @@
 
 // CPU Implementation
 void CPU::Reset() {
-    A = X = Y = 0;
-    SP = 0x01FF;
-    PC = 0x8000;  // Will be loaded from reset vector
+    A = D = X = Y = 0;
+    SP = 0x01FF;    // Start of page 1
+    PC = ReadWord(0x00FFFC);
     P = 0x34;     // Start in emulation mode
     DB = PB = 0;
-    D = 0;
     cycles = 0;
 }
 
@@ -5112,15 +5111,16 @@ void CPU::XBA() {
 }
 
 void CPU::XCE() {
-
     const bool old_carry = (P & FLAG_C) != 0;
-    const bool old_emulation = emulation_mode;
+
+    if (emulation_mode) P |= FLAG_C;
+    else P &= ~FLAG_C;
 
     emulation_mode = old_carry;
 
-    if (old_emulation) {
-         P |= FLAG_C;
+    if (emulation_mode) {
+        // Force 8-bit modes, constrain stack to page 1
+        P |= (FLAG_M | FLAG_X);
+        SP = (SP & 0x00FF) | 0x0100;
     }
-
-    cycles += 2;
 }
