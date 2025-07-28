@@ -302,6 +302,24 @@ void CPU::UpdateLSRFlags16(const uint16_t original_value, const uint16_t result)
     UpdateNZ16(result);
 }
 
+void CPU::ORA_Mem(const uint32_t address, const int base_cycles, const bool addDPExtraCycle = false, const bool addPageCrossCycle = false, const uint16_t base_address = 0, const uint16_t offset = 0) {
+    if (P & FLAG_M) {
+        const uint8_t operand = ReadByte(address);
+        A = (A & 0xFF00) | ((A & 0xFF) | operand);
+        UpdateNZ8(A & 0xFF);
+        cycles += base_cycles;
+        if (addDPExtraCycle && (D & 0xFF)) cycles++;
+        if (addPageCrossCycle && ((base_address & 0xFF00) != ((base_address + offset) & 0xFF00))) cycles++;
+    } else {
+        const uint16_t operand = ReadWord(address);
+        A |= operand;
+        UpdateNZ16(A);
+        cycles += base_cycles + 1;
+        if (addDPExtraCycle && (D & 0xFF)) cycles++;
+        if (addPageCrossCycle && ((base_address & 0xFF00) != ((base_address + offset) & 0xFF00))) cycles++;
+    }
+}
+
 // ROL/ROR helper methods
 uint8_t CPU::ROL8(uint8_t value) {
     const bool old_carry = (P & FLAG_C) != 0;
@@ -3891,290 +3909,99 @@ void CPU::ORA_Immediate() {
 void CPU::ORA_Absolute() {
     const uint16_t address = ReadWord(PC);
     PC += 2;
-    const uint32_t full_address = (DB << 16) | address;
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 4;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 5;
-    }
+    ORA_Mem((DB << 16) | address, 4);
 }
 
 void CPU::ORA_AbsoluteX() {
-    const uint16_t base_address = ReadWord(PC);
+    const uint16_t base = ReadWord(PC);
     PC += 2;
-    const uint32_t full_address = (DB << 16) | (base_address + X);
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 4;
-        if ((base_address & 0xFF00) != ((base_address + X) & 0xFF00)) {
-            cycles++;
-        }
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 5;
-        if ((base_address & 0xFF00) != ((base_address + X) & 0xFF00)) {
-            cycles++;
-        }
-    }
+    ORA_Mem((DB << 16) | (base + X), 4, false, true, base, X);
 }
 
 void CPU::ORA_AbsoluteY() {
-    const uint16_t base_address = ReadWord(PC);
+    const uint16_t base = ReadWord(PC);
     PC += 2;
-    const uint32_t full_address = (DB << 16) | (base_address + Y);
-
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 4;
-        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
-            cycles++;
-        }
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 5;
-        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
-            cycles++;
-        }
-    }
+    ORA_Mem((DB << 16) | (base + Y), 4, false, true, base, Y);
 }
 
 void CPU::ORA_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = D + offset;
-
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 3;
-        if (D & 0xFF) cycles++;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 4;
-        if (D & 0xFF) cycles++;
-    }
+    ORA_Mem(D + offset, 3, true);
 }
 
 void CPU::ORA_DirectPageX() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = D + offset + X;
-
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 4;
-        if (D & 0xFF) cycles++;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 5;
-        if (D & 0xFF) cycles++;
-    }
+    ORA_Mem(D + offset + X, 4, true);
 }
 
 void CPU::ORA_IndirectDirectPage() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t pointer_address = D + offset;
-    const uint16_t indirect_address = ReadWord(pointer_address);
-    const uint32_t full_address = (DB << 16) | indirect_address;
+    const uint32_t addr = D + offset;
+    const uint16_t indirect = ReadWord(addr);
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 5;
-        if (D & 0xFF) cycles++;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 6;
-        if (D & 0xFF) cycles++;
-    }
+    ORA_Mem((DB << 16) | indirect, 5, true);
 }
 
 void CPU::ORA_IndirectDirectPageLong() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t pointer_address = D + offset;
-    const uint32_t full_address = ReadByte(pointer_address) |
-                           (ReadByte(pointer_address + 1) << 8) |
-                           (ReadByte(pointer_address + 2) << 16);
+    const uint32_t addr = D + offset;
+    const uint32_t long_addr = ReadByte(addr) | (ReadByte(addr + 1) << 8) | (ReadByte(addr + 2) << 16);
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 6;
-        if (D & 0xFF) cycles++;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 7;
-        if (D & 0xFF) cycles++;
-    }
+    ORA_Mem(long_addr, 6, true);
 }
 
 void CPU::ORA_IndexedIndirectDirectPageX() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t pointer_address = D + offset + X;
-    const uint16_t indirect_address = ReadWord(pointer_address);
-    const uint32_t full_address = (DB << 16) | indirect_address;
+    const uint32_t addr = D + offset + X;
+    const uint16_t indirect = ReadWord(addr);
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 6;
-        if (D & 0xFF) cycles++;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 7;
-        if (D & 0xFF) cycles++;
-    }
+    ORA_Mem((DB << 16) | indirect, 6, true);
 }
 
 void CPU::ORA_IndirectDirectPageY() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t pointer_address = D + offset;
-    const uint16_t base_address = ReadWord(pointer_address);
-    const uint32_t full_address = (DB << 16) | (base_address + Y);
+    const uint32_t pointer_addr = D + offset;
+    const uint16_t base = ReadWord(pointer_addr);
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 5;
-        if (D & 0xFF) cycles++;
-        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
-            cycles++;
-        }
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 6;
-        if (D & 0xFF) cycles++;
-        if ((base_address & 0xFF00) != ((base_address + Y) & 0xFF00)) {
-            cycles++;
-        }
-    }
+    ORA_Mem((DB << 16) | (base + Y), 5, true, true, base, Y);
 }
 
 void CPU::ORA_IndirectDirectPageLongY() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t pointer_address = D + offset;
-    const uint32_t base_address = ReadByte(pointer_address) |
-                           (ReadByte(pointer_address + 1) << 8) |
-                           (ReadByte(pointer_address + 2) << 16);
-    const uint32_t full_address = base_address + Y;
+    const uint32_t pointer = D + offset;
+    const uint32_t base = ReadByte(pointer) |
+                    (ReadByte(pointer + 1) << 8) |
+                    (ReadByte(pointer + 2) << 16);
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 6;
-        if (D & 0xFF) cycles++;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 7;
-        if (D & 0xFF) cycles++;
-    }
+    ORA_Mem(base + Y, 6, true);
 }
 
 void CPU::ORA_AbsoluteLong() {
-    const uint32_t address = ReadByte(PC) | (ReadByte(PC + 1) << 8) | (ReadByte(PC + 2) << 16);
+    const uint32_t addr = ReadByte(PC) | (ReadByte(PC + 1) << 8) | (ReadByte(PC + 2) << 16);
     PC += 3;
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 5;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 6;
-    }
+    ORA_Mem(addr, 5);
 }
 
 void CPU::ORA_AbsoluteLongX() {
-    const uint32_t base_address = ReadByte(PC) | (ReadByte(PC + 1) << 8) | (ReadByte(PC + 2) << 16);
+    const uint32_t base = ReadByte(PC) | (ReadByte(PC + 1) << 8) | (ReadByte(PC + 2) << 16);
     PC += 3;
-    const uint32_t full_address = base_address + X;
 
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 5;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 6;
-    }
+    ORA_Mem(base + X, 5);
 }
 
 void CPU::ORA_StackRelative() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = SP + offset;
-
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 4;
-    } else { // 16-bit mode
-        uint16_t operand = ReadWord(address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 5;
-    }
+    ORA_Mem(SP + offset, 4);
 }
 
 void CPU::ORA_StackRelativeIndirectY() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t pointer_address = SP + offset;
-    const uint16_t base_address = ReadWord(pointer_address);
-    const uint32_t full_address = (DB << 16) | (base_address + Y);
-
-    if (P & FLAG_M) { // 8-bit mode
-        const uint8_t operand = ReadByte(full_address);
-        A = (A & 0xFF00) | ((A & 0xFF) | operand);
-        UpdateNZ8(A & 0xFF);
-        cycles += 7;
-    } else { // 16-bit mode
-        const uint16_t operand = ReadWord(full_address);
-        A |= operand;
-        UpdateNZ16(A);
-        cycles += 8;
-    }
+    const uint32_t pointer = SP + offset;
+    const uint16_t base = ReadWord(pointer);
+    ORA_Mem((DB << 16) | (base + Y), 7);
 }
 
 void CPU::MVN() {

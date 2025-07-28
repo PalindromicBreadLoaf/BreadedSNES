@@ -67,18 +67,9 @@ class CPU {
     // Helper method to check for decimal mode adjustment
     static uint16_t AdjustDecimal(uint16_t binary_result, bool is_16bit);
 
-    // Helper methods for ASL stuff
-    void UpdateASLFlags8(uint8_t original_value, uint8_t result);
-    void UpdateASLFlags16(uint16_t original_value, uint16_t result);
-
-    // Helper methods for BIT
-    void UpdateBITFlags8(uint8_t memory_value, uint8_t acc_value);
-    void UpdateBITFlags16(uint16_t memory_value, uint16_t acc_value);
-    void UpdateBITImmediateFlags8(uint8_t memory_value, uint8_t acc_value);
-    void UpdateBITImmediateFlags16(uint16_t memory_value, uint16_t acc_value);
-
-    void UpdateLSRFlags8(uint8_t original_value, uint8_t result);
-    void UpdateLSRFlags16(uint16_t original_value, uint16_t result);
+    // General ORA Logic
+    void ORA_Mem(uint32_t address, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle, uint16_t base_address,
+             uint16_t offset);
 
     //Helper Methods for Rotate Right/Left
     uint8_t ROL8(uint8_t value);
@@ -98,7 +89,21 @@ class CPU {
     void SBC_FromAddress_PageCross(uint32_t address, uint16_t base_address, uint16_t offset, int base_cycles_8bit,
                                    int base_cycles_16bit);
 
+    // General STZ Logic
     void STZ_ToAddress(uint32_t address, int base_cycles_8bit, int base_cycles_16bit);
+
+    // Helper methods for ASL stuff
+    void UpdateASLFlags8(uint8_t original_value, uint8_t result);
+    void UpdateASLFlags16(uint16_t original_value, uint16_t result);
+
+    // Helper methods for BIT
+    void UpdateBITFlags8(uint8_t memory_value, uint8_t acc_value);
+    void UpdateBITFlags16(uint16_t memory_value, uint16_t acc_value);
+    void UpdateBITImmediateFlags8(uint8_t memory_value, uint8_t acc_value);
+    void UpdateBITImmediateFlags16(uint16_t memory_value, uint16_t acc_value);
+
+    void UpdateLSRFlags8(uint8_t original_value, uint8_t result);
+    void UpdateLSRFlags16(uint16_t original_value, uint16_t result);
 
 public:
     explicit CPU(Bus* memory_bus) : bus(memory_bus) {
