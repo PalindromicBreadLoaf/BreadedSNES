@@ -217,6 +217,23 @@ void CPU::LDA_Mem(const uint32_t address, const int base_cycles, const bool addD
     if (addPageCrossCycle && ((base & 0xFF00) != ((base + offset) & 0xFF00))) cycles++;
 }
 
+void CPU::LD_Index(uint32_t address, const bool isX, const int base_cycles, const bool addDPExtraCycle = false, const bool addPageCrossCycle = false, const uint16_t base = 0, const uint16_t offset = 0) {
+    const bool is8Bit = P & FLAG_X;
+    const uint16_t value = is8Bit ? ReadByte(address) : ReadWord(address);
+
+    if (isX) {
+        X = value;
+        is8Bit ? UpdateNZ8(X & 0xFF) : UpdateNZ16(X);
+    } else {
+        Y = value;
+        is8Bit ? UpdateNZ8(Y & 0xFF) : UpdateNZ16(Y);
+    }
+
+    cycles += base_cycles + (is8Bit ? 0 : 1);
+    if (addDPExtraCycle && (D & 0xFF)) cycles++;
+    if (addPageCrossCycle && ((base & 0xFF00) != ((base + offset) & 0xFF00))) cycles++;
+}
+
 void CPU::UpdateASLFlags8(const uint8_t original_value, const uint8_t result) {
     if (original_value & 0x80) {
         P |= FLAG_C;
@@ -1021,83 +1038,29 @@ void CPU::LDX_Immediate() {
 }
 
 void CPU::LDX_Absolute() {
-    const uint16_t address = ReadWord(PC);
+    const uint16_t addr = ReadWord(PC);
     PC += 2;
 
-    if (P & FLAG_X) {
-        // 8-bit mode
-        X = ReadByte(address);
-        UpdateNZ8(X & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        X = ReadWord(address);
-        UpdateNZ16(X);
-        cycles += 5;
-    }
+    LD_Index(addr, true, 4);
 }
 
 void CPU::LDX_AbsoluteY() {
-    const uint16_t base_address = ReadWord(PC);
+    const uint16_t base = ReadWord(PC);
     PC += 2;
-    const uint32_t address = base_address + Y;
 
-    // Page boundary crossing adds a cycle
-    if ((base_address & 0xFF00) != (address & 0xFF00)) {
-        cycles++;
-    }
-
-    if (P & FLAG_X) {
-        // 8-bit mode
-        X = ReadByte(address);
-        UpdateNZ8(X & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        X = ReadWord(address);
-        UpdateNZ16(X);
-        cycles += 5;
-    }
+    LD_Index(base + Y, true, 4, false, true, base, Y);
 }
 
 void CPU::LDX_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = D + offset;
-
-    if (P & FLAG_X) {
-        // 8-bit mode
-        X = ReadByte(address);
-        UpdateNZ8(X & 0xFF);
-        cycles += 3;
-    } else {
-        // 16-bit mode
-        X = ReadWord(address);
-        UpdateNZ16(X);
-        cycles += 4;
-    }
-
-    // Extra cycle if D register is not page-aligned
-    if (D & 0xFF) cycles++;
+    LD_Index(D + offset, true, 3, true);
 }
 
 void CPU::LDX_DirectPageY() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = D + offset + (P & FLAG_X ? (Y & 0xFF) : Y);
+    const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
 
-    if (P & FLAG_X) {
-        // 8-bit mode
-        X = ReadByte(address);
-        UpdateNZ8(X & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        X = ReadWord(address);
-        UpdateNZ16(X);
-        cycles += 5;
-    }
-
-    // Extra cycle if D register is not page-aligned
-    if (D & 0xFF) cycles++;
+    LD_Index(D + offset + y_offset, true, 4, true);
 }
 
 // Load Y Register Instructions
@@ -1117,83 +1080,30 @@ void CPU::LDY_Immediate() {
 }
 
 void CPU::LDY_Absolute() {
-    const uint16_t address = ReadWord(PC);
+    const uint16_t addr = ReadWord(PC);
     PC += 2;
 
-    if (P & FLAG_X) {
-        // 8-bit mode
-        Y = ReadByte(address);
-        UpdateNZ8(Y & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        Y = ReadWord(address);
-        UpdateNZ16(Y);
-        cycles += 5;
-    }
+    LD_Index(addr, false, 4);
 }
 
 void CPU::LDY_AbsoluteX() {
-    const uint16_t base_address = ReadWord(PC);
+    const uint16_t base = ReadWord(PC);
     PC += 2;
-    const uint32_t address = base_address + X;
 
-    // Page boundary crossing adds a cycle
-    if ((base_address & 0xFF00) != (address & 0xFF00)) {
-        cycles++;
-    }
-
-    if (P & FLAG_X) {
-        // 8-bit mode
-        Y = ReadByte(address);
-        UpdateNZ8(Y & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        Y = ReadWord(address);
-        UpdateNZ16(Y);
-        cycles += 5;
-    }
+    LD_Index(base + X, false, 4, false, true, base, X);
 }
 
 void CPU::LDY_DirectPage() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = D + offset;
 
-    if (P & FLAG_X) {
-        // 8-bit mode
-        Y = ReadByte(address);
-        UpdateNZ8(Y & 0xFF);
-        cycles += 3;
-    } else {
-        // 16-bit mode
-        Y = ReadWord(address);
-        UpdateNZ16(Y);
-        cycles += 4;
-    }
-
-    // Extra cycle if D register is not page-aligned
-    if (D & 0xFF) cycles++;
+    LD_Index(D + offset, false, 3, true);
 }
 
 void CPU::LDY_DirectPageX() {
     const uint8_t offset = ReadByte(PC++);
-    const uint32_t address = D + offset + (P & FLAG_X ? (X & 0xFF) : X);
+    const uint16_t x_offset = (P & FLAG_X) ? (X & 0xFF) : X;
 
-    if (P & FLAG_X) {
-        // 8-bit mode
-        Y = ReadByte(address);
-        UpdateNZ8(Y & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        Y = ReadWord(address);
-        UpdateNZ16(Y);
-        cycles += 5;
-    }
-
-    // Extra cycle if D register is not page-aligned
-    if (D & 0xFF) cycles++;
+    LD_Index(D + offset + x_offset, false, 4, true);
 }
 
 //Store operations implementation

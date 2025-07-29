@@ -70,6 +70,10 @@ class CPU {
     void LDA_Mem(uint32_t address, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle, uint16_t base,
                  uint16_t offset);
 
+    void LD_Index(uint32_t address, bool isX, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle,
+                  uint16_t base,
+                  uint16_t offset);
+
     // General ORA Logic
     void ORA_Mem(uint32_t address, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle, uint16_t base_address,
              uint16_t offset);
