@@ -586,6 +586,21 @@ void CPU::STZ_ToAddress(const uint32_t address, const int base_cycles_8bit, cons
     }
 }
 
+void CPU::WriteRegisterToAddress(const uint32_t address, const uint16_t value, const bool isMemoryFlag, const int baseCycles) {
+    if (isMemoryFlag) {
+        WriteByte(address, value & 0xFF);
+        cycles += baseCycles;
+    } else {
+        WriteWord(address, value);
+        cycles += baseCycles + 1;
+    }
+}
+
+void CPU::WriteWithDirectPagePenalty(const uint32_t address, const uint16_t value, const bool isMemoryFlag, const int baseCycles) {
+    WriteRegisterToAddress(address, value, isMemoryFlag, baseCycles);
+    if (D & 0xFF) cycles++;
+}
+
 void CPU::ExecuteInstruction() {
     switch (const uint8_t opcode = bus->Read(PC++)) {
         // ADC - Add with Carry
@@ -1125,13 +1140,7 @@ void CPU::STA_AbsoluteX() {
     const uint32_t address = base + X;
     PC += 3;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 5;
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 6;
-    }
+    WriteRegisterToAddress(address, A, P & FLAG_M, 5);
 }
 
 void CPU::STA_AbsoluteY() {
@@ -1139,13 +1148,7 @@ void CPU::STA_AbsoluteY() {
     const uint32_t address = base + Y;
     PC += 3;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 5;
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 6;
-    }
+    WriteRegisterToAddress(address, A, P & FLAG_M, 5);
 }
 
 void CPU::STA_DirectPage() {
@@ -1153,15 +1156,7 @@ void CPU::STA_DirectPage() {
     const uint32_t address = (D + offset) & 0xFFFF;
     PC += 2;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 3;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 4;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    }
+    WriteWithDirectPagePenalty(address, A, P & FLAG_M, 3);
 }
 
 void CPU::STA_DirectPageX() {
@@ -1169,15 +1164,7 @@ void CPU::STA_DirectPageX() {
     const uint32_t address = (D + offset + X) & 0xFFFF;
     PC += 2;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 4;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 5;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    }
+    WriteWithDirectPagePenalty(address, A, P & FLAG_M, 4);
 }
 
 void CPU::STA_IndirectDirectPage() {
@@ -1186,15 +1173,7 @@ void CPU::STA_IndirectDirectPage() {
     const uint32_t address = ReadWord(pointer) | (DB << 16);
     PC += 2;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 5;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 6;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    }
+    WriteWithDirectPagePenalty(address, A, P & FLAG_M, 5);
 }
 
 void CPU::STA_IndirectDirectPageY() {
@@ -1204,15 +1183,7 @@ void CPU::STA_IndirectDirectPageY() {
     const uint32_t address = base + Y;
     PC += 2;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 6;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 7;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    }
+    WriteWithDirectPagePenalty(address, A, P & FLAG_M, 6);
 }
 
 void CPU::STA_DirectPageIndirectX() {
@@ -1221,122 +1192,66 @@ void CPU::STA_DirectPageIndirectX() {
     const uint32_t address = ReadWord(pointer) | (DB << 16);
     PC += 2;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 6;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 7;
-        if (D & 0xFF) cycles++; // Extra cycle if D register low byte != 0
-    }
+    WriteWithDirectPagePenalty(address, A, P & FLAG_M, 7);
 }
 
 void CPU::STA_Long() {
-    const uint32_t address = ReadByte(PC + 1) | (ReadByte(PC + 2) << 8) | (ReadByte(PC + 3) << 16);
+    const uint32_t address = ReadByte(PC + 1) |
+                       (ReadByte(PC + 2) << 8) |
+                       (ReadByte(PC + 3) << 16);
     PC += 4;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 5;
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 6;
-    }
+    WriteRegisterToAddress(address, A, P & FLAG_M, 5);
 }
 
 void CPU::STA_LongX() {
-    const uint32_t base = ReadByte(PC + 1) | (ReadByte(PC + 2) << 8) | (ReadByte(PC + 3) << 16);
+    const uint32_t base = ReadByte(PC + 1) |
+                    (ReadByte(PC + 2) << 8) |
+                    (ReadByte(PC + 3) << 16);
     const uint32_t address = base + X;
     PC += 4;
 
-    if (P & FLAG_M) { // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 6;
-    } else { // 16-bit mode
-        WriteWord(address, A);
-        cycles += 7;
-    }
+    WriteRegisterToAddress(address, A, P & FLAG_M, 6);
 }
 
 void CPU::STA_StackRelative() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t address = SP + offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        WriteByte(address, A & 0xFF);
-        cycles += 4;
-    } else {
-        // 16-bit mode
-        WriteWord(address, A);
-        cycles += 5;
-    }
+    WriteRegisterToAddress(address, A, P & FLAG_M, 4);
 }
 
 void CPU::STA_DirectPageIndirectLong() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t indirect_addr = D + offset;
-
     const uint32_t target_address = ReadByte(indirect_addr) |
                              (ReadByte(indirect_addr + 1) << 8) |
                              (ReadByte(indirect_addr + 2) << 16);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        WriteByte(target_address, A & 0xFF);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        WriteWord(target_address, A);
-        cycles += 7;
-    }
-
-    if (D & 0xFF) cycles++;
+    WriteWithDirectPagePenalty(target_address, A, P & FLAG_M, 6);
 }
 
 void CPU::STA_StackRelativeIndirectY() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t indirect_addr = SP + offset;
-
     const uint16_t base_address = ReadWord(indirect_addr);
-
     const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
     const uint32_t target_address = (DB << 16) | (base_address + y_offset);
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        WriteByte(target_address, A & 0xFF);
-        cycles += 7;
-    } else {
-        // 16-bit mode
-        WriteWord(target_address, A);
-        cycles += 8;
-    }
+    WriteRegisterToAddress(target_address, A, P & FLAG_M, 7);
 }
 
 void CPU::STA_DirectPageIndirectLongY() {
     const uint8_t offset = ReadByte(PC++);
     const uint32_t indirect_addr = D + offset;
-
     const uint32_t base_address = ReadByte(indirect_addr) |
                            (ReadByte(indirect_addr + 1) << 8) |
                            (ReadByte(indirect_addr + 2) << 16);
-
     const uint16_t y_offset = (P & FLAG_X) ? (Y & 0xFF) : Y;
     const uint32_t target_address = base_address + y_offset;
 
-    if (P & FLAG_M) {
-        // 8-bit mode
-        WriteByte(target_address, A & 0xFF);
-        cycles += 6;
-    } else {
-        // 16-bit mode
-        WriteWord(target_address, A);
-        cycles += 7;
-    }
+    WriteWithDirectPagePenalty(target_address, A, P & FLAG_M, 6);
 
-    if (D & 0xFF) cycles++;
 }
 
 // STX - Store X Register
@@ -1370,8 +1285,8 @@ void CPU::STX_DirectPage() {
 }
 
 void CPU::STX_DirectPageY() {
-    uint8_t offset = ReadByte(PC + 1);
-    uint32_t address = (D + offset + Y) & 0xFFFF;
+    const uint8_t offset = ReadByte(PC + 1);
+    const uint32_t address = (D + offset + Y) & 0xFFFF;
     PC += 2;
 
     if (P & FLAG_X) { // 8-bit mode
@@ -1387,7 +1302,7 @@ void CPU::STX_DirectPageY() {
 
 // STY - Store Y Register
 void CPU::STY_Absolute() {
-    uint32_t address = ReadWord(PC + 1) | (DB << 16);
+    const uint32_t address = ReadWord(PC + 1) | (DB << 16);
     PC += 3;
 
     if (P & FLAG_X) { // 8-bit mode

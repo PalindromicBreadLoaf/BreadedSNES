@@ -67,6 +67,7 @@ class CPU {
     // Helper method to check for decimal mode adjustment
     static uint16_t AdjustDecimal(uint16_t binary_result, bool is_16bit);
 
+    // Helpers for LD* Instructions
     void LDA_Mem(uint32_t address, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle, uint16_t base,
                  uint16_t offset);
 
@@ -98,6 +99,10 @@ class CPU {
 
     // General STZ Logic
     void STZ_ToAddress(uint32_t address, int base_cycles_8bit, int base_cycles_16bit);
+
+    // ST* Helpers
+    void WriteWithDirectPagePenalty(uint32_t address, uint16_t value, bool isMemoryFlag, int baseCycles);
+    void WriteRegisterToAddress(uint32_t address, uint16_t value, bool isMemoryFlag, int baseCycles);
 
     // Helper methods for ASL stuff
     void UpdateASLFlags8(uint8_t original_value, uint8_t result);
