@@ -67,6 +67,9 @@ class CPU {
     // Helper method to check for decimal mode adjustment
     static uint16_t AdjustDecimal(uint16_t binary_result, bool is_16bit);
 
+    void LDA_Mem(uint32_t address, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle, uint16_t base,
+                 uint16_t offset);
+
     // General ORA Logic
     void ORA_Mem(uint32_t address, int base_cycles, bool addDPExtraCycle, bool addPageCrossCycle, uint16_t base_address,
              uint16_t offset);
