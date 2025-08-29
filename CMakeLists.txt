@@ -46,10 +46,20 @@ elseif(APPLE)
     find_package(SDL2 REQUIRED CONFIG)
 
     message(STATUS "Found SDL2 at: ${SDL2_DIR}")
-elseif(UNIX)
+elseif(UNIX AND NOT APPLE)
+    find_package(SDL2 CONFIG QUIET)
+
     if(NOT SDL2_FOUND)
+        # Use pkg-config as fallback
         find_package(PkgConfig REQUIRED)
         pkg_check_modules(SDL2 REQUIRED sdl2)
+
+        add_library(SDL2::SDL2 UNKNOWN IMPORTED)
+        set_target_properties(SDL2::SDL2 PROPERTIES
+                IMPORTED_LOCATION "${SDL2_LIBRARIES}"
+                INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIRS}"
+                INTERFACE_COMPILE_OPTIONS "${SDL2_CFLAGS_OTHER}"
+        )
     endif()
 endif()
 
